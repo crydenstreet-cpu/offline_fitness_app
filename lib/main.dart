@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'screens/workouts.dart';
 import 'screens/exercises.dart';
 import 'screens/stats.dart';
+import 'ui/design.dart';
+import 'screens/training_styled.dart';
 
 void main() => runApp(const MyApp());
 
@@ -11,17 +13,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Offline Fitness',
-      theme: ThemeData.dark().copyWith(
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF00E0C6),
-          secondary: Color(0xFF1E1E1E),
-        ),
-        scaffoldBackgroundColor: const Color(0xFF121212),
-        cardColor: const Color(0xFF1E1E1E),
-      ),
-      debugShowCheckedModeBanner: false,
-      home: const _Nav(),
+  debugShowCheckedModeBanner: false,
+  title: 'Offline Fitness App',
+  theme: buildAppTheme(), // ⬅️ Hier dein neues Theme
+  home: Nav(), // oder dein Start-Screen
+);
     );
   }
 }
