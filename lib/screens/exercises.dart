@@ -3,12 +3,13 @@ import '../db/database_helper.dart';
 
 class ExercisesScreen extends StatefulWidget {
   const ExercisesScreen({super.key});
+
   @override
   State<ExercisesScreen> createState() => _ExercisesScreenState();
 }
 
 class _ExercisesScreenState extends State<ExercisesScreen> {
-  late Future<List<Map<String, dynamic>>> _future;
+  late Future<List<Map<String, dynamic>>> _exercisesFuture;
 
   @override
   void initState() {
@@ -17,115 +18,121 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
   }
 
   void _reload() {
-    _future = DB.instance.getExercises();
+    _exercisesFuture = DB.instance.getExercises();
     setState(() {});
   }
 
-  Future<void> _createOrEdit({Map<String, dynamic>? existing}) async {
-    final name = TextEditingController(text: existing?['name'] ?? '');
-    final mg   = TextEditingController(text: existing?['muscle_group'] ?? '');
-    final desc = TextEditingController(text: existing?['description'] ?? '');
-    String unit = existing?['unit'] ?? 'kg';
+  Future<void> _addExerciseDialog() async {
+    final nameCtrl = TextEditingController();
+    final groupCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    final unitCtrl = TextEditingController(text: 'kg');
+    final setsCtrl = TextEditingController(text: '3');
+    final repsCtrl = TextEditingController(text: '10');
 
     final saved = await showDialog<bool>(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1E1E1E),
-          title: Text(existing == null ? 'Übung anlegen' : 'Übung bearbeiten'),
-          content: SingleChildScrollView(
-            child: Column(
-              children: [
-                TextField(controller: name, decoration: const InputDecoration(labelText: 'Name')),
-                TextField(controller: mg, decoration: const InputDecoration(labelText: 'Muskelgruppe (optional)')),
-                TextField(controller: desc, decoration: const InputDecoration(labelText: 'Beschreibung (optional)')),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  value: unit,
-                  items: const [
-                    DropdownMenuItem(value: 'kg', child: Text('kg')),
-                    DropdownMenuItem(value: 'lbs', child: Text('lbs')),
-                    DropdownMenuItem(value: 'reps', child: Text('nur Wdh.')),
-                    DropdownMenuItem(value: 'sec', child: Text('Sekunden')),
-                  ],
-                  onChanged: (v) => unit = v ?? 'kg',
-                  decoration: const InputDecoration(labelText: 'Einheit'),
-                ),
-              ],
-            ),
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('🏋️‍♂️ Neue Übung anlegen'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Name')),
+              TextField(controller: groupCtrl, decoration: const InputDecoration(labelText: 'Muskelgruppe')),
+              TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'Beschreibung')),
+              TextField(controller: unitCtrl, decoration: const InputDecoration(labelText: 'Einheit (z. B. kg)')),
+              const SizedBox(height: 10),
+              TextField(
+                controller: setsCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Standard-Sätze'),
+              ),
+              TextField(
+                controller: repsCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Standard-Wiederholungen'),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
-            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Speichern')),
-          ],
-        );
-      },
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Speichern')),
+        ],
+      ),
     );
 
-    if (saved != true) return;
-    if (name.text.trim().isEmpty) return;
-
-    if (existing == null) {
+    if (saved == true) {
       await DB.instance.insertExercise({
-        'name': name.text.trim(),
-        'muscle_group': mg.text.trim().isEmpty ? null : mg.text.trim(),
-        'description': desc.text.trim().isEmpty ? null : desc.text.trim(),
-        'unit': unit
+        'name': nameCtrl.text.trim(),
+        'muscle_group': groupCtrl.text.trim(),
+        'description': descCtrl.text.trim(),
+        'unit': unitCtrl.text.trim().isEmpty ? 'kg' : unitCtrl.text.trim(),
+        'default_sets': int.tryParse(setsCtrl.text.trim()) ?? 3,
+        'default_reps': int.tryParse(repsCtrl.text.trim()) ?? 10,
       });
-    } else {
-      await DB.instance.updateExercise(existing['id'], {
-        'name': name.text.trim(),
-        'muscle_group': mg.text.trim().isEmpty ? null : mg.text.trim(),
-        'description': desc.text.trim().isEmpty ? null : desc.text.trim(),
-        'unit': unit
-      });
+      _reload();
     }
-    _reload();
   }
 
-  Future<void> _delete(int id) async {
-    await DB.instance.deleteExercise(id);
-    _reload();
+  Future<void> _deleteExercise(int id) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('Löschen?'),
+        content: const Text('Diese Übung wirklich löschen?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Löschen')),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      await DB.instance.deleteExercise(id);
+      _reload();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('📋 Übungen'),
+        title: const Text('🏋️ Übungen'),
         backgroundColor: Colors.black,
-        actions: [ IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)) ],
+        actions: [
+          IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _createOrEdit(),
+        onPressed: _addExerciseDialog,
         icon: const Icon(Icons.add),
-        label: const Text('Übung hinzufügen'),
+        label: const Text('Übung'),
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _future,
+        future: _exercisesFuture,
         builder: (context, snap) {
-          if (!snap.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final items = snap.data!;
-          if (items.isEmpty) {
-            return const Center(child: Text('Noch keine Übungen – lege deine erste an!'));
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-            itemCount: items.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+          final list = snap.data!;
+          if (list.isEmpty) return const Center(child: Text('Noch keine Übungen angelegt.'));
+          return ListView.builder(
+            padding: const EdgeInsets.all(12),
+            itemCount: list.length,
             itemBuilder: (context, i) {
-              final e = items[i];
-              return Dismissible(
-                key: ValueKey(e['id']),
-                background: Container(color: Colors.red, alignment: Alignment.centerLeft, padding: const EdgeInsets.only(left: 16), child: const Icon(Icons.delete)),
-                secondaryBackground: Container(color: Colors.red, alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 16), child: const Icon(Icons.delete)),
-                onDismissed: (_) => _delete(e['id'] as int),
+              final e = list[i];
+              return Card(
                 child: ListTile(
                   title: Text(e['name'] ?? ''),
-                  subtitle: Text([e['muscle_group'], e['unit']].where((x) => (x ?? '').toString().isNotEmpty).join(' • ')),
-                  trailing: IconButton(icon: const Icon(Icons.edit), onPressed: () => _createOrEdit(existing: e)),
+                  subtitle: Text(
+                    'Muskelgruppe: ${e['muscle_group'] ?? '-'}\n'
+                    'Sätze: ${e['default_sets'] ?? 3} • Wiederholungen: ${e['default_reps'] ?? 10}',
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.redAccent),
+                    onPressed: () => _deleteExercise(e['id'] as int),
+                  ),
                 ),
               );
             },
