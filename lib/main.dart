@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'screens/exercises.dart';
 import 'screens/workouts.dart';
+import 'screens/exercises.dart';
 import 'screens/stats.dart';
-
 
 void main() => runApp(const MyApp());
 
@@ -32,24 +31,26 @@ class _Nav extends StatefulWidget {
   State<_Nav> createState() => _NavState();
 }
 
-final pages = const [
-  _Stub('🏠 Dashboard'),
-  _Stub('💪 Workouts'),   // (oder dein echter WorkoutsScreen, wenn schon integriert)
-  _Stub('📋 Übungen'),    // (oder dein ExercisesScreen)
-  StatsScreen(),          // <— NEU: Progress/PRs
-  _Stub('📖 Tagebuch'),
-  _Stub('⚙️ Einstellungen'),
-];
+class _NavState extends State<_Nav> {
+  int _index = 0;
 
+  final List<Widget> _pages = const [
+    _Stub('🏠 Dashboard'),
+    WorkoutsScreen(),
+    ExercisesScreen(),
+    StatsScreen(),
+    _Stub('📖 Tagebuch'),
+    _Stub('⚙️ Einstellungen'),
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(child: pages[i]),
+      body: SafeArea(child: _pages[_index]),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        currentIndex: i,
-        onTap: (v) => setState(() => i = v),
+        currentIndex: _index,
+        onTap: (v) => setState(() => _index = v),
         selectedItemColor: const Color(0xFF00E0C6),
         unselectedItemColor: Colors.white70,
         backgroundColor: Colors.black,
@@ -75,8 +76,8 @@ class _Stub extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 10),
-        const Text('Hier kommen gleich die echten Inhalte rein.'),
+        const SizedBox(height: 8),
+        const Text('Platzhalter – Inhalt folgt.'),
       ],
     );
   }
