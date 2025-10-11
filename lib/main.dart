@@ -4,6 +4,7 @@ import 'screens/workouts.dart';
 import 'screens/exercises.dart';
 import 'screens/stats.dart';
 import 'screens/journal.dart';
+import 'screens/planner.dart';   // ⬅️ neu
 import 'ui/design.dart';
 
 void main() => runApp(const MyApp());
@@ -31,7 +32,7 @@ class _NavState extends State<_Nav> {
   int _index = 0;
 
   final List<Widget> _pages = const [
-    _Stub('🏠 Dashboard'),
+    PlannerScreen(),       // ⬅️ neu: direkt vorne, damit man’s sofort findet
     WorkoutsScreen(),
     ExercisesScreen(),
     StatsScreen(),
@@ -47,7 +48,7 @@ class _NavState extends State<_Nav> {
         currentIndex: _index,
         onTap: (v) => setState(() => _index = v),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.event_note), label: 'Plan'),
           BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Workouts'),
           BottomNavigationBarItem(icon: Icon(Icons.list_alt), label: 'Übungen'),
           BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Progress'),
@@ -69,15 +70,7 @@ class _Stub extends StatelessWidget {
       children: [
         Text(title, style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 10),
-        Card(
-          child: ListTile(
-            title: const Text('Willkommen!'),
-            subtitle: Text(
-              'Globales Theme aktiv. Inhalte folgen.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ),
-        ),
+        const Card(child: ListTile(title: Text('Inhalt folgt.'))),
       ],
     );
   }
