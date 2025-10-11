@@ -114,7 +114,51 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
         ),
       ),
     );
-    if (ok == true && selectedId != null) { await DB.instance.addExerciseToWorkout(widget.workout['id'] as int, selectedId!); _reload(); }
+    if (ok == true && selectedId != null) {
+      await DB.instance.addExerciseToWorkout(widget.workout['id'] as int, selectedId!);
+      _reload();
+    }
+  }
+
+  Future<void> _editPlanDialog(Map<String, dynamic> row) async {
+    final linkId = row['link_id'] as int;
+    final unit   = (row['unit'] ?? 'kg').toString();
+    final setsCtrl = TextEditingController(text: (row['planned_sets'] ?? row['default_sets'] ?? 3).toString());
+    final repsCtrl = TextEditingController(text: (row['planned_reps'] ?? row['default_reps'] ?? 10).toString());
+    final weightCtrl = TextEditingController(text: (row['planned_weight'] ?? '').toString());
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Plan bearbeiten – ${row['name']}'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Row(children: [
+            Expanded(child: TextField(controller: setsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Sätze'))),
+            const SizedBox(width: 10),
+            Expanded(child: TextField(controller: repsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Wdh.'))),
+          ]),
+          const SizedBox(height: 8),
+          TextField(controller: weightCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: 'Gewicht ($unit)')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Speichern')),
+        ],
+      ),
+    );
+
+    if (saved == true) {
+      final sets = int.tryParse(setsCtrl.text.trim());
+      final reps = int.tryParse(repsCtrl.text.trim());
+      final weight = double.tryParse(weightCtrl.text.trim().replaceAll(',', '.'));
+      await DB.instance.updateWorkoutExercisePlan(
+        linkId: linkId,
+        plannedSets: sets,
+        plannedReps: reps,
+        plannedWeight: weight,
+      );
+      _reload();
+    }
   }
 
   Future<void> _startTraining() async {
@@ -155,10 +199,23 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
             itemCount: items.length,
             itemBuilder: (context, i) {
               final e = items[i];
+              final unit = (e['unit'] ?? 'kg').toString();
+              final planSets = e['planned_sets'] ?? e['default_sets'];
+              final planReps = e['planned_reps'] ?? e['default_reps'];
+              final planWeight = e['planned_weight'];
+
               return Card(
                 child: ListTile(
                   title: Text(e['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w800)),
-                  subtitle: Text([e['muscle_group'], e['unit']].where((x) => (x ?? '').toString().isNotEmpty).join(' • ')),
+                  subtitle: Text(
+                    'Plan: ${planSets ?? '-'}×${planReps ?? '-'}'
+                    '${planWeight != null ? ' @ ${_fmt(planWeight)} $unit' : ''}',
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.edit),
+                    onPressed: () => _editPlanDialog(e),
+                    tooltip: 'Plan bearbeiten',
+                  ),
                 ),
               );
             },
@@ -176,5 +233,11 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
         ),
       ),
     );
+  }
+
+  String _fmt(Object? n) {
+    if (n == null) return '-';
+    final d = (n is num) ? n.toDouble() : double.tryParse('$n') ?? 0;
+    return d.toStringAsFixed(d.truncateToDouble() == d ? 0 : 2);
   }
 }
