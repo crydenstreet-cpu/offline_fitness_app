@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import '../db/database_helper.dart';
-import '../ui/design.dart';
-import '../ui/components.dart';
-import 'sessions.dart';
+import 'package:offline_fitness_app/db/database_helper.dart';
+import 'package:offline_fitness_app/ui/design.dart';
+import 'package:offline_fitness_app/screens/sessions.dart';
 
 class WorkoutsScreen extends StatefulWidget {
   const WorkoutsScreen({super.key});
@@ -21,7 +20,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
         title: const Text('Neues Workout'),
         content: TextField(controller: c, decoration: const InputDecoration(labelText: 'Workout-Name'), autofocus: true),
         actions: [
@@ -49,7 +47,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
             itemCount: items.length,
             itemBuilder: (context, i) {
               final w = items[i];
-              return AppCard(
+              return Card(
                 child: ListTile(
                   title: Text(w['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w800)),
                   trailing: const Icon(Icons.chevron_right),
@@ -99,7 +97,6 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setStateDialog) => AlertDialog(
-          backgroundColor: AppColors.surface,
           title: const Text('Übung hinzufügen'),
           content: DropdownButtonFormField<int>(
             value: selectedId,
@@ -130,7 +127,11 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
     final sessionId = await DB.instance.startSession(workoutId: widget.workout['id'] as int);
     if (!mounted) return;
     Navigator.push(context, MaterialPageRoute(
-      builder: (_) => SessionScreen(sessionId: sessionId, workoutId: widget.workout['id'] as int, workoutName: widget.workout['name'] as String),
+      builder: (_) => SessionScreen(
+        sessionId: sessionId,
+        workoutId: widget.workout['id'] as int,
+        workoutName: widget.workout['name'] as String,
+      ),
     ));
   }
 
@@ -154,7 +155,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
             itemCount: items.length,
             itemBuilder: (context, i) {
               final e = items[i];
-              return AppCard(
+              return Card(
                 child: ListTile(
                   title: Text(e['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w800)),
                   subtitle: Text([e['muscle_group'], e['unit']].where((x) => (x ?? '').toString().isNotEmpty).join(' • ')),
