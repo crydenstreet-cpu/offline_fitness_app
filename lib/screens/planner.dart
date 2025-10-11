@@ -68,7 +68,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final df = DateFormat('EEE, dd.MM.yyyy', 'de_DE');
 
     if (_loading) {
-      return const Scaffold(
+      return Scaffold(
         appBar: AppBar(title: const Text('🗓️ Wochen-Planer')),
         body: Center(child: CircularProgressIndicator()),
       );
