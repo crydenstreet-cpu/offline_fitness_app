@@ -4,6 +4,8 @@ import 'package:fl_chart/fl_chart.dart';
 import '../db/database_helper.dart';
 import '../ui/design.dart';
 import '../ui/components.dart';
+import 'package:offline_fitness_app/db/database_helper.dart';
+import 'package:offline_fitness_app/ui/design.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
