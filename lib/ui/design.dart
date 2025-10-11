@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
 
 /// AMOLED Black + Electric Purple Theme
-/// - Hintergrund: #000000 (echtes Schwarz für OLED)
-//  - Primär:     #7C4DFF (Electric Purple)
-//  - Akzent:     #00FFC6 (Neon Mint) als sekundärer Farbakzent
-//  - Text:       Weiß / 80% Weiß für Muted
-
 class AppColors {
-  static const black = Color(0xFF000000);
+  static const black   = Color(0xFF000000);
   static const surface = Color(0xFF0A0A0A);
-  static const surface2 = Color(0xFF121212);
-  static const purple = Color(0xFF7C4DFF);
-  static const mint = Color(0xFF00FFC6);
-  static const text = Colors.white;
+  static const surface2= Color(0xFF121212);
+  static const purple  = Color(0xFF7C4DFF);
+  static const mint    = Color(0xFF00FFC6);
+  static const text    = Colors.white;
   static const textMuted = Color(0xCCFFFFFF);
+
+  /// Alias, damit Komponenten `AppColors.primary` nutzen können:
+  static const primary = purple;
 }
 
 ThemeData buildAppTheme() {
@@ -86,7 +84,7 @@ ThemeData buildAppTheme() {
       labelStyle: const TextStyle(color: AppColors.textMuted),
     ),
     dividerTheme: const DividerThemeData(color: Colors.white10, thickness: 1),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData( // <-- CardThemeData statt CardTheme
       color: AppColors.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -96,7 +94,6 @@ ThemeData buildAppTheme() {
   );
 }
 
-/// Einfacher Scaffold-Wrapper ohne Verläufe (AMOLED-schwarz)
 class AppScaffold extends StatelessWidget {
   final PreferredSizeWidget? appBar;
   final Widget body;
