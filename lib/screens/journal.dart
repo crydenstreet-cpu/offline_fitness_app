@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
 import '../ui/design.dart';
-import '../ui/components.dart';
 
 class JournalScreen extends StatefulWidget {
   const JournalScreen({super.key});
@@ -26,7 +25,6 @@ class _JournalScreenState extends State<JournalScreen> {
     final saved = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
         title: const Text('📝 Neuer Eintrag'),
         content: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -89,9 +87,8 @@ class _JournalScreenState extends State<JournalScreen> {
             itemBuilder: (context, i) {
               final e = entries[i];
               final date = e['date'] != null ? fmt.format(DateTime.parse(e['date'])) : '-';
-              return AppCard(
+              return Card(
                 child: ListTile(
-                  contentPadding: EdgeInsets.zero,
                   title: Text(date, style: const TextStyle(fontWeight: FontWeight.w800)),
                   subtitle: Padding(
                     padding: const EdgeInsets.only(top: 4),
