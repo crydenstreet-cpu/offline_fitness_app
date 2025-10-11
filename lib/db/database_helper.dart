@@ -11,6 +11,63 @@ class DB {
     if (_db != null) return _db!;
     _db = await _open();
     return _db!;
+      /// Liefert PR/Volumen/Sätze (gesamt) – existiert evtl. schon in deiner Datei.
+  Future<Map<String, dynamic>?> progressForExercise(int exerciseId) async {
+    final db = await database;
+    final res = await db.rawQuery('''
+      SELECT 
+        MAX(weight) AS max_weight,
+        SUM(weight * reps) AS total_volume,
+        COUNT(*) AS total_sets
+      FROM workout_sets
+      WHERE exercise_id = ?
+    ''', [exerciseId]);
+    return res.isNotEmpty ? res.first : null;
+  }
+
+  /// Bester Satz (PR) inkl. Reps + Datum der Session
+  Future<Map<String, dynamic>?> bestSetForExercise(int exerciseId) async {
+    final db = await database;
+    final res = await db.rawQuery('''
+      SELECT ws.weight, ws.reps, s.started_at
+      FROM workout_sets ws
+      JOIN sessions s ON s.id = ws.session_id
+      WHERE ws.exercise_id = ?
+      ORDER BY ws.weight DESC, ws.reps DESC
+      LIMIT 1
+    ''', [exerciseId]);
+    return res.isNotEmpty ? res.first : null;
+  }
+
+  /// Letzte N Sätze einer Übung (für Verlauf/Überblick)
+  Future<List<Map<String, dynamic>>> recentSetsForExercise(int exerciseId, {int limit = 10}) async {
+    final db = await database;
+    return db.rawQuery('''
+      SELECT ws.set_index, ws.reps, ws.weight, s.started_at
+      FROM workout_sets ws
+      JOIN sessions s ON s.id = ws.session_id
+      WHERE ws.exercise_id = ?
+      ORDER BY s.started_at DESC, ws.set_index DESC
+      LIMIT ?
+    ''', [exerciseId, limit]);
+  }
+
+  /// Volumen pro Tag für eine Übung (Aggregation)
+  Future<List<Map<String, dynamic>>> volumePerDayForExercise(int exerciseId, {int limitDays = 30}) async {
+    final db = await database;
+    return db.rawQuery('''
+      SELECT substr(s.started_at, 1, 10) AS day,
+             SUM(ws.weight * ws.reps) AS day_volume,
+             COUNT(*) AS sets_count
+      FROM workout_sets ws
+      JOIN sessions s ON s.id = ws.session_id
+      WHERE ws.exercise_id = ?
+      GROUP BY day
+      ORDER BY day DESC
+      LIMIT ?
+    ''', [exerciseId, limitDays]);
+  }
+
   }
 
   Future<Database> _open() async {
