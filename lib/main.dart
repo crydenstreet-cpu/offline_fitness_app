@@ -15,7 +15,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Offline Fitness App',
-      theme: buildAppTheme(),   // zentrales Theme
+      theme: buildAppTheme(),
       home: const _Nav(),
     );
   }
@@ -41,9 +41,9 @@ class _NavState extends State<_Nav> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AppScaffold(
       body: SafeArea(child: _pages[_index]),
-      bottomNavigationBar: BottomNavigationBar(
+      bottom: BottomNavigationBar(
         currentIndex: _index,
         onTap: (v) => setState(() => _index = v),
         items: const [
@@ -65,7 +65,7 @@ class _Stub extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       children: [
         Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
