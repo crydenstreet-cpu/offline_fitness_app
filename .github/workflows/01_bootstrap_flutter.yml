@@ -4,54 +4,49 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: write   # <— wichtig: erlaubt push
+  contents: write  # wichtig für git push
+  pull-requests: write
 
 jobs:
   bootstrap:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout (empty or partial repo)
+      - name: Checkout
         uses: actions/checkout@v4
         with:
-          persist-credentials: true   # nutzt GITHUB_TOKEN für push
+          persist-credentials: true
 
-      - name: Setup Java (AGP 8+ braucht Java 17)
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Flutter
+      - name: Setup Flutter (stable)
         uses: subosito/flutter-action@v2
         with:
           channel: stable
 
-      # Erzeuge NUR Android-Targets und gültigen Projektnamen
-      - name: Initialize Flutter project (Android-only)
+      - name: Init Flutter project (Android only)
         run: |
           if [ ! -f "pubspec.yaml" ]; then
-            flutter create . \
-              --project-name offline_fitness_app \
-              --platforms=android
+            flutter create . --project-name offline_fitness_app --platforms=android
           else
             echo "Flutter project already exists."
           fi
 
-      # Falls bereits andere Plattform-Ordner existieren: löschen (nur Android gewünscht)
-      - name: Remove non-Android platforms (if present)
+      - name: Remove non-Android platforms (safety)
         run: |
           rm -rf ios macos windows linux web
 
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Commit generated files back to repo
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Commit & push generated files
         run: |
           if [ -n "$(git status --porcelain)" ]; then
-            git config user.name "github-actions[bot]"
+            git config user.name  "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add -A
             git commit -m "Bootstrap: add Flutter Android project"
@@ -63,7 +58,7 @@ jobs:
       - name: Build release APK (smoke test)
         run: flutter build apk --release
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-release
