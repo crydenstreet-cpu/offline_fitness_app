@@ -1,0 +1,55 @@
+name: 01 Bootstrap Flutter Project
+
+on:
+  workflow_dispatch: {}   # Manuell starten
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (empty repo)
+        uses: actions/checkout@v4
+
+      - name: Setup Java (for Android Gradle Plugin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Initialize Flutter project (if missing)
+        run: |
+          if [ ! -f "pubspec.yaml" ]; then
+            flutter create .
+          else
+            echo "Flutter project already exists."
+          fi
+
+      - name: Commit generated files back to repo (first run only)
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "Bootstrap: add Flutter project via workflow"
+            git push
+          else
+            echo "Nothing to commit."
+          fi
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: build/app/outputs/flutter-apk/app-release.apk
