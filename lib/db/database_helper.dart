@@ -417,5 +417,3 @@ class DB {
     return db.delete('workout_schedule', where: 'date = ?', whereArgs: [ymd]);
   }
 }
-
-}
