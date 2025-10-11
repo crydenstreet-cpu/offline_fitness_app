@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../db/database_helper.dart';
 
 class StatsScreen extends StatefulWidget {
@@ -78,7 +79,6 @@ class _StatsScreenState extends State<StatsScreen> {
   String _fmtNum(Object? n) {
     if (n == null) return '-';
     final d = (n is num) ? n.toDouble() : double.tryParse('$n') ?? 0;
-    // einfache Formatierung ohne Locale-Abhängigkeit
     return d.toStringAsFixed(d.truncateToDouble() == d ? 0 : 2);
   }
 }
@@ -156,7 +156,25 @@ class _ExerciseProgressDetailState extends State<ExerciseProgressDetail> {
 
           const SizedBox(height: 12),
 
-          // Letzte Sätze
+          // Volumen-Liniendiagramm (letzte 30 Tage)
+          const Text('Volumen (letzte 30 Tage)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          if (_perDay.isEmpty)
+            const Text('Keine Daten.'),
+          if (_perDay.isNotEmpty) _volumeLineChart(),
+
+          const SizedBox(height: 16),
+
+          // Sätze pro Tag (BarChart)
+          const Text('Satzanzahl pro Tag', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          if (_perDay.isEmpty)
+            const Text('Keine Daten.'),
+          if (_perDay.isNotEmpty) _setsBarChart(),
+
+          const SizedBox(height: 16),
+
+          // Letzte Sätze (Liste)
           const Text('Letzte Sätze', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
           if (_recent.isEmpty)
@@ -173,41 +191,144 @@ class _ExerciseProgressDetailState extends State<ExerciseProgressDetail> {
               );
             }),
 
-          const SizedBox(height: 16),
-
-          // Volumen pro Tag
-          const Text('Volumen (letzte 30 Tage)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 6),
-          if (_perDay.isEmpty)
-            const Text('Keine Daten.'),
-          if (_perDay.isNotEmpty)
-            Column(
-              children: _perDay.map((row) {
-                final day = row['day'] ?? '';
-                final vol = _num(row['day_volume']);
-                final sets = row['sets_count'];
-                return ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.calendar_today, size: 18),
-                  title: Text('$day – Volumen: $vol'),
-                  subtitle: Text('Sätze: $sets'),
-                );
-              }).toList(),
-            ),
-
           const SizedBox(height: 24),
-          // Hinweis auf Charts (optional später)
-          const Text('Hinweis: Diagramme (Linien/Balken) können wir jederzeit mit fl_chart hinzufügen.',
-              style: TextStyle(color: Colors.white70)),
+          const Text(
+            'Tipp: Zeiträume/Filter (7/30/90 Tage) können wir später ergänzen.',
+            style: TextStyle(color: Colors.white70),
+          ),
         ],
       ),
     );
   }
 
+  // ---------- Charts ----------
+
+  /// Liniendiagramm: Tagesvolumen (x = Tagindex, y = Volumen)
+  Widget _volumeLineChart() {
+    // älteste zuerst für schöne x-Achse links->rechts
+    final daysAsc = List<Map<String, dynamic>>.from(_perDay.reversed);
+    final spots = <FlSpot>[];
+    for (var i = 0; i < daysAsc.length; i++) {
+      final y = (daysAsc[i]['day_volume'] as num?)?.toDouble() ?? 0.0;
+      spots.add(FlSpot(i.toDouble(), y));
+    }
+
+    return SizedBox(
+      height: 220,
+      child: LineChart(
+        LineChartData(
+          minX: 0,
+          maxX: (spots.length - 1).toDouble(),
+          minY: 0,
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              dotData: const FlDotData(show: false),
+              belowBarData: BarAreaData(show: true, applyCutOffY: true),
+              // keine Farben explizit setzen → Standardfarben
+            ),
+          ],
+          titlesData: FlTitlesData(
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                interval: (spots.length / 4).clamp(1, 7).toDouble(),
+                getTitlesWidget: (value, meta) {
+                  final idx = value.round();
+                  if (idx < 0 || idx >= daysAsc.length) return const SizedBox.shrink();
+                  final d = daysAsc[idx]['day'] as String;
+                  // nur MM-TT anzeigen
+                  final label = d.length >= 10 ? d.substring(5, 10) : d;
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(label, style: const TextStyle(fontSize: 10)),
+                  );
+                },
+              ),
+            ),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 40,
+                getTitlesWidget: (value, meta) => Text(
+                  _shortNumber(value),
+                  style: const TextStyle(fontSize: 10),
+                ),
+              ),
+            ),
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          ),
+          gridData: const FlGridData(show: true),
+          borderData: FlBorderData(show: false),
+        ),
+      ),
+    );
+  }
+
+  /// Balkendiagramm: Sätze pro Tag
+  Widget _setsBarChart() {
+    final daysAsc = List<Map<String, dynamic>>.from(_perDay.reversed);
+    final groups = <BarChartGroupData>[];
+    for (var i = 0; i < daysAsc.length; i++) {
+      final count = (daysAsc[i]['sets_count'] as num?)?.toDouble() ?? 0.0;
+      groups.add(BarChartGroupData(
+        x: i,
+        barRods: [BarChartRodData(toY: count, width: 10)],
+      ));
+    }
+
+    return SizedBox(
+      height: 220,
+      child: BarChart(
+        BarChartData(
+          barGroups: groups,
+          gridData: const FlGridData(show: true),
+          borderData: FlBorderData(show: false),
+          titlesData: FlTitlesData(
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 28,
+                getTitlesWidget: (v, _) => Text(v.toInt().toString(), style: const TextStyle(fontSize: 10)),
+              ),
+            ),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                interval: (groups.length / 4).clamp(1, 7).toDouble(),
+                getTitlesWidget: (value, meta) {
+                  final idx = value.round();
+                  if (idx < 0 || idx >= daysAsc.length) return const SizedBox.shrink();
+                  final d = daysAsc[idx]['day'] as String;
+                  final label = d.length >= 10 ? d.substring(5, 10) : d;
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(label, style: const TextStyle(fontSize: 10)),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------- Utils ----------
+
   String _num(Object? n) {
     if (n == null) return '-';
     final d = (n is num) ? n.toDouble() : double.tryParse('$n') ?? 0;
     return d.toStringAsFixed(d.truncateToDouble() == d ? 0 : 2);
+  }
+
+  String _shortNumber(double v) {
+    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
+    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}k';
+    return v.toStringAsFixed(0);
   }
 }
