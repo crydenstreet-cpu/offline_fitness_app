@@ -19,12 +19,11 @@ class DB {
 
     return openDatabase(
       path,
-      version: 2, // ⬅️ Schema-Version anheben
+      version: 3, // ⬅️ Schema v3 (mit Plan-Feldern)
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
       onCreate: (db, version) async {
-        // Übungen (inkl. default_sets & default_reps)
         await db.execute('''
           CREATE TABLE exercises(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,6 +51,9 @@ class DB {
             workout_id INTEGER NOT NULL,
             exercise_id INTEGER NOT NULL,
             position INTEGER,
+            planned_sets INTEGER,
+            planned_reps INTEGER,
+            planned_weight REAL,
             FOREIGN KEY(workout_id) REFERENCES workouts(id) ON DELETE CASCADE,
             FOREIGN KEY(exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
           );
@@ -97,26 +99,31 @@ class DB {
           );
         ''');
       },
-
-      // 🔒 Sicheres Upgrade: nur Spalten hinzufügen, wenn sie fehlen
       onUpgrade: (db, oldVersion, newVersion) async {
+        // v2 brachte default_sets/default_reps (falls von sehr alt)
         if (oldVersion < 2) {
           final cols = await db.rawQuery('PRAGMA table_info(exercises);');
-          bool hasDefaultSets = cols.any((c) => (c['name'] as String?) == 'default_sets');
-          bool hasDefaultReps = cols.any((c) => (c['name'] as String?) == 'default_reps');
+          final hasSets = cols.any((c) => (c['name'] as String?) == 'default_sets');
+          final hasReps = cols.any((c) => (c['name'] as String?) == 'default_reps');
+          if (!hasSets) await db.execute('ALTER TABLE exercises ADD COLUMN default_sets INTEGER DEFAULT 3;');
+          if (!hasReps) await db.execute('ALTER TABLE exercises ADD COLUMN default_reps INTEGER DEFAULT 10;');
+        }
+        // v3: Plan-Felder auf workout_exercises
+        if (oldVersion < 3) {
+          final cols = await db.rawQuery('PRAGMA table_info(workout_exercises);');
+          bool hasPlSets   = cols.any((c) => (c['name'] as String?) == 'planned_sets');
+          bool hasPlReps   = cols.any((c) => (c['name'] as String?) == 'planned_reps');
+          bool hasPlWeight = cols.any((c) => (c['name'] as String?) == 'planned_weight');
 
-          if (!hasDefaultSets) {
-            await db.execute('ALTER TABLE exercises ADD COLUMN default_sets INTEGER DEFAULT 3;');
-          }
-          if (!hasDefaultReps) {
-            await db.execute('ALTER TABLE exercises ADD COLUMN default_reps INTEGER DEFAULT 10;');
-          }
+          if (!hasPlSets)   await db.execute('ALTER TABLE workout_exercises ADD COLUMN planned_sets INTEGER;');
+          if (!hasPlReps)   await db.execute('ALTER TABLE workout_exercises ADD COLUMN planned_reps INTEGER;');
+          if (!hasPlWeight) await db.execute('ALTER TABLE workout_exercises ADD COLUMN planned_weight REAL;');
         }
       },
     );
   }
 
-  // ---------------- EXERCISES ----------------
+  // ---------- EXERCISES ----------
   Future<int> insertExercise(Map<String, dynamic> data) async {
     final db = await database;
     data['created_at'] ??= DateTime.now().toIso8601String();
@@ -138,7 +145,7 @@ class DB {
     return db.delete('exercises', where: 'id = ?', whereArgs: [id]);
   }
 
-  // ---------------- WORKOUTS ----------------
+  // ---------- WORKOUTS ----------
   Future<int> insertWorkout(String name) async {
     final db = await database;
     return db.insert('workouts', {'name': name, 'created_at': DateTime.now().toIso8601String()});
@@ -149,27 +156,59 @@ class DB {
     return db.query('workouts', orderBy: 'created_at DESC');
   }
 
+  /// Fügt Übung ins Workout und übernimmt default_sets/default_reps als Plan.
   Future<int> addExerciseToWorkout(int workoutId, int exerciseId, {int? position}) async {
     final db = await database;
-    return db.insert('workout_exercises', {
+    final linkId = await db.insert('workout_exercises', {
       'workout_id': workoutId,
       'exercise_id': exerciseId,
       'position': position
     });
+
+    // Defaults aus exercise übernehmen
+    final ex = (await db.query('exercises', where: 'id = ?', whereArgs: [exerciseId], limit: 1)).first;
+    await db.update(
+      'workout_exercises',
+      {
+        'planned_sets': ex['default_sets'],
+        'planned_reps': ex['default_reps'],
+        // planned_weight bleibt zunächst NULL – User setzt es selbst
+      },
+      where: 'id = ?',
+      whereArgs: [linkId],
+    );
+    return linkId;
   }
 
   Future<List<Map<String, dynamic>>> getExercisesOfWorkout(int workoutId) async {
     final db = await database;
     return db.rawQuery('''
-      SELECT we.id as link_id, e.*
+      SELECT we.id as link_id,
+             we.planned_sets, we.planned_reps, we.planned_weight,
+             e.*
       FROM workout_exercises we
       JOIN exercises e ON e.id = we.exercise_id
       WHERE we.workout_id = ?
-      ORDER BY COALESCE(we.position, 999999)
+      ORDER BY COALESCE(we.position, 999999), we.id
     ''', [workoutId]);
   }
 
-  // ---------------- SESSIONS & SETS ----------------
+  Future<int> updateWorkoutExercisePlan({
+    required int linkId,
+    int? plannedSets,
+    int? plannedReps,
+    double? plannedWeight,
+  }) async {
+    final db = await database;
+    final data = <String, Object?>{};
+    if (plannedSets != null) data['planned_sets'] = plannedSets;
+    if (plannedReps != null) data['planned_reps'] = plannedReps;
+    if (plannedWeight != null) data['planned_weight'] = plannedWeight;
+    if (data.isEmpty) return 0;
+    return db.update('workout_exercises', data, where: 'id = ?', whereArgs: [linkId]);
+  }
+
+  // ---------- SESSIONS & SETS ----------
   Future<int> startSession({int? workoutId, String? note}) async {
     final db = await database;
     return db.insert('sessions', {
@@ -203,10 +242,26 @@ class DB {
     return db.query('workout_sets',
         where: 'session_id = ?',
         whereArgs: [sessionId],
-        orderBy: 'set_index ASC');
+        orderBy: 'exercise_id ASC, set_index ASC');
   }
 
-  // ---------------- JOURNAL ----------------
+  /// Letztes verwendetes Gewicht für eine Übung (global)
+  Future<double?> lastWeightForExercise(int exerciseId) async {
+    final db = await database;
+    final res = await db.rawQuery('''
+      SELECT ws.weight
+      FROM workout_sets ws
+      JOIN sessions s ON s.id = ws.session_id
+      WHERE ws.exercise_id = ?
+      ORDER BY s.started_at DESC, ws.set_index DESC
+      LIMIT 1
+    ''', [exerciseId]);
+    if (res.isEmpty) return null;
+    final w = res.first['weight'];
+    return (w is num) ? w.toDouble() : double.tryParse('$w');
+  }
+
+  // ---------- JOURNAL ----------
   Future<int> insertJournal(Map<String, dynamic> entry) async {
     final db = await database;
     entry['date'] ??= DateTime.now().toIso8601String();
@@ -225,14 +280,13 @@ class DB {
       orderBy: 'date DESC');
   }
 
-  // ---------------- PROGRESS / PRs ----------------
+  // ---------- PROGRESS ----------
   Future<Map<String, dynamic>?> progressForExercise(int exerciseId) async {
     final db = await database;
     final res = await db.rawQuery('''
-      SELECT 
-        MAX(weight) AS max_weight,
-        SUM(weight * reps) AS total_volume,
-        COUNT(*) AS total_sets
+      SELECT MAX(weight) AS max_weight,
+             SUM(weight * reps) AS total_volume,
+             COUNT(*) AS total_sets
       FROM workout_sets
       WHERE exercise_id = ?
     ''', [exerciseId]);
