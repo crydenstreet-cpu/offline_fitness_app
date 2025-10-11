@@ -410,4 +410,15 @@ class DB {
 
   String _ymd(DateTime d) =>
       '${d.year.toString().padLeft(4,'0')}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
+
+    String _ymd(DateTime d) =>
+      '${d.year.toString().padLeft(4,'0')}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
+
+  /// Zuweisung eines Datums entfernen
+  Future<int> deleteSchedule(String ymd) async {
+    final db = await database;
+    return db.delete('workout_schedule', where: 'date = ?', whereArgs: [ymd]);
+  }
+}
+
 }
