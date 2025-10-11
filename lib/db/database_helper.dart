@@ -30,6 +30,8 @@ class DB {
             muscle_group TEXT,
             description TEXT,
             unit TEXT DEFAULT 'kg',
+            default_sets INTEGER DEFAULT 3,
+            default_reps INTEGER DEFAULT 10, 
             created_at TEXT
           );
         ''');
