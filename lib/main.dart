@@ -15,7 +15,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Offline Fitness App',
-      theme: buildAppTheme(),
+      theme: buildAppTheme(),  // <- AMOLED + Purple
       home: const _Nav(),
     );
   }
@@ -67,9 +67,17 @@ class _Stub extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(18),
       children: [
-        Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        const Text('Platzhalter – Inhalt folgt.'),
+        Text(title, style: Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height: 10),
+        Card(
+          child: ListTile(
+            title: const Text('Willkommen!'),
+            subtitle: Text(
+              'AMOLED-Theme aktiv. Wenn du irgendwo harte Farben siehst, sag mir die Datei/Zeile, dann räum ich es auf.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        ),
       ],
     );
   }
