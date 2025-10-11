@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:offline_fitness_app/db/database_helper.dart';
 import 'package:offline_fitness_app/screens/sessions.dart';
+import 'package:offline_fitness_app/ui/design.dart'; // <- AppScaffold
 
 class CalendarMonthScreen extends StatefulWidget {
   const CalendarMonthScreen({super.key});
@@ -42,11 +43,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
 
   void _prevMonth() { setState(() => _month = DateTime(_month.year, _month.month - 1, 1)); _load(); }
   void _nextMonth() { setState(() => _month = DateTime(_month.year, _month.month + 1, 1)); _load(); }
-  void _goToday() {
-    final now = DateTime.now();
-    setState(() => _month = DateTime(now.year, now.month, 1));
-    _load();
-  }
+  void _goToday()   { final now = DateTime.now(); setState(() => _month = DateTime(now.year, now.month, 1)); _load(); }
 
   Future<void> _editDay(DateTime day) async {
     final ymd = _ymd(day);
@@ -55,13 +52,12 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).cardColor,
+      backgroundColor: Theme.of(context).colorScheme.surface, // Kontrast sicher
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
       builder: (ctx) {
         return Padding(
           padding: EdgeInsets.only(
-            left: 16, right: 16,
-            top: 12,
+            left: 16, right: 16, top: 12,
             bottom: 16 + MediaQuery.of(ctx).viewInsets.bottom,
           ),
           child: Column(
@@ -73,6 +69,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
               DropdownButtonFormField<int?>(
                 value: selected,
                 isExpanded: true,
+                dropdownColor: Theme.of(ctx).colorScheme.surface,
                 decoration: const InputDecoration(labelText: 'Workout zuweisen'),
                 items: <DropdownMenuItem<int?>>[
                   const DropdownMenuItem<int?>(value: null, child: Text('— kein —')),
@@ -86,19 +83,9 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Abbrechen'),
-                    ),
-                  ),
+                  Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen'))),
                   const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Speichern'),
-                    ),
-                  ),
+                  Expanded(child: ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Speichern'))),
                 ],
               ),
               const SizedBox(height: 6),
@@ -106,11 +93,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: TextButton.icon(
-                    onPressed: () async {
-                      await DB.instance.deleteSchedule(ymd);
-                      if (!mounted) return;
-                      Navigator.pop(ctx, true);
-                    },
+                    onPressed: () async { await DB.instance.deleteSchedule(ymd); if (!mounted) return; Navigator.pop(ctx, true); },
                     icon: const Icon(Icons.delete_outline),
                     label: const Text('Zuweisung entfernen'),
                   ),
@@ -125,7 +108,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
       if (selected == null) {
         await DB.instance.deleteSchedule(ymd);
       } else {
-        await DB.instance.upsertSchedule(ymd, selected!); // selected ist sicher nicht null
+        await DB.instance.upsertSchedule(ymd, selected!);
       }
       await _load();
     }
@@ -140,11 +123,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     final sessionId = await DB.instance.startSession(workoutId: workoutId);
     if (!mounted) return;
     Navigator.push(context, MaterialPageRoute(
-      builder: (_) => SessionScreen(
-        sessionId: sessionId,
-        workoutId: workoutId,
-        workoutName: name,
-      ),
+      builder: (_) => SessionScreen(sessionId: sessionId, workoutId: workoutId, workoutName: name),
     ));
   }
 
@@ -152,12 +131,13 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
   Widget build(BuildContext context) {
     final monthTitle = DateFormat('LLLL yyyy', 'de_DE').format(_month);
 
-    return Scaffold(
+    return AppScaffold(
       appBar: AppBar(
         title: Text('📆 $monthTitle'),
         actions: [
           IconButton(onPressed: _prevMonth, icon: const Icon(Icons.chevron_left)),
           IconButton(onPressed: _nextMonth, icon: const Icon(Icons.chevron_right)),
+          IconButton(onPressed: _goToday, icon: const Icon(Icons.today)),
         ],
       ),
       body: _loading
@@ -174,15 +154,6 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
                     onEditDay: _editDay,
                     onStartDay: _startFromDay,
                   )),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _goToday,
-                      icon: const Icon(Icons.today),
-                      label: const Text('Heute'),
-                    ),
-                  )
                 ],
               ),
             ),
@@ -195,7 +166,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
 
 class _WeekdayHeader extends StatelessWidget {
   final List<String> labels = const ['Mo','Di','Mi','Do','Fr','Sa','So'];
-  _WeekdayHeader({super.key});
+  const _WeekdayHeader({super.key});
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -242,9 +213,8 @@ class _MonthGrid extends StatelessWidget {
       itemCount: totalCells,
       itemBuilder: (context, idx) {
         final dayNum = idx - leading + 1;
-        if (dayNum < 1 || dayNum > daysInMonth) {
-          return const SizedBox.shrink();
-        }
+        if (dayNum < 1 || dayNum > daysInMonth) return const SizedBox.shrink();
+
         final day = DateTime(month.year, month.month, dayNum);
         final ymd = _ymd(day);
         final planned = scheduleByYmd[ymd];
@@ -252,7 +222,8 @@ class _MonthGrid extends StatelessWidget {
         final hasPlan = planned != null;
 
         final isToday = isTodayMonth && (day.day == today.day);
-        final border = isToday ? Border.all(color: Theme.of(context).colorScheme.primary, width: 1.2) : Border.all(color: Colors.white12);
+        final border = isToday ? Border.all(color: Theme.of(context).colorScheme.primary, width: 1.2)
+                               : Border.all(color: Colors.white12);
 
         return InkWell(
           borderRadius: BorderRadius.circular(14),
@@ -260,7 +231,7 @@ class _MonthGrid extends StatelessWidget {
           onLongPress: hasPlan ? () => onStartDay(day) : null,
           child: Container(
             decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(14),
               border: border,
             ),
@@ -287,8 +258,8 @@ class _MonthGrid extends StatelessWidget {
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),
-                  ),
-                if (!hasPlan)
+                  )
+                else
                   const Expanded(
                     child: Align(
                       alignment: Alignment.topLeft,
