@@ -13,7 +13,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
   DateTime _start = DateTime.now();
   int _weeks = 4;
 
-  // Wochentag (1=Mo .. 7=So) -> workoutId (nullable)
+  // 1=Mo..7=So -> workoutId? (nullable)
   final Map<int, int?> _weekdayMap = {1:null,2:null,3:null,4:null,5:null,6:null,7:null};
 
   List<Map<String, dynamic>> _workouts = [];
@@ -21,10 +21,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
   bool _loading = true;
 
   @override
-  void initState() {
-    super.initState();
-    _load();
-  }
+  void initState() { super.initState(); _load(); }
 
   Future<void> _load() async {
     setState(() => _loading = true);
@@ -70,7 +67,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
     if (_loading) {
       return Scaffold(
         appBar: AppBar(title: const Text('🗓️ Wochen-Planer')),
-        body: Center(child: CircularProgressIndicator()),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -82,11 +79,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         children: [
           if (noWorkouts)
-            Card(
+            const Card(
               child: ListTile(
-                leading: const Icon(Icons.info_outline),
-                title: const Text('Noch keine Workouts angelegt'),
-                subtitle: const Text('Lege zuerst Workouts im Tab „Workouts“ an. Danach kannst du sie hier zuweisen.'),
+                leading: Icon(Icons.info_outline),
+                title: Text('Noch keine Workouts angelegt'),
+                subtitle: Text('Lege zuerst Workouts im Tab „Workouts“ an. Danach kannst du sie hier zuweisen.'),
               ),
             ),
 
@@ -139,7 +136,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
                         SizedBox(width: 32, child: Text(_weekdayLabel(wd))),
                         const SizedBox(width: 12),
                         Expanded(
-                          // WICHTIG: Typ ist jetzt int? (nullable)!
                           child: DropdownButtonFormField<int?>(
                             value: _weekdayMap[wd],
                             isExpanded: true,
