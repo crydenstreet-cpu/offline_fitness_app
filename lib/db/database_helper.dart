@@ -16,13 +16,15 @@ class DB {
   Future<Database> _open() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'offline_fitness.db');
+
     return openDatabase(
       path,
-      version: 1,
+      version: 2, // ⬅️ Schema-Version anheben
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
       onCreate: (db, version) async {
+        // Übungen (inkl. default_sets & default_reps)
         await db.execute('''
           CREATE TABLE exercises(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,7 +33,7 @@ class DB {
             description TEXT,
             unit TEXT DEFAULT 'kg',
             default_sets INTEGER DEFAULT 3,
-            default_reps INTEGER DEFAULT 10, 
+            default_reps INTEGER DEFAULT 10,
             created_at TEXT
           );
         ''');
@@ -94,6 +96,22 @@ class DB {
             FOREIGN KEY(linked_session_id) REFERENCES sessions(id) ON DELETE SET NULL
           );
         ''');
+      },
+
+      // 🔒 Sicheres Upgrade: nur Spalten hinzufügen, wenn sie fehlen
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          final cols = await db.rawQuery('PRAGMA table_info(exercises);');
+          bool hasDefaultSets = cols.any((c) => (c['name'] as String?) == 'default_sets');
+          bool hasDefaultReps = cols.any((c) => (c['name'] as String?) == 'default_reps');
+
+          if (!hasDefaultSets) {
+            await db.execute('ALTER TABLE exercises ADD COLUMN default_sets INTEGER DEFAULT 3;');
+          }
+          if (!hasDefaultReps) {
+            await db.execute('ALTER TABLE exercises ADD COLUMN default_reps INTEGER DEFAULT 10;');
+          }
+        }
       },
     );
   }
@@ -221,7 +239,6 @@ class DB {
     return res.isNotEmpty ? res.first : null;
   }
 
-  /// PR-Satz (höchstes Gewicht, bei Gleichstand mehr Reps), inkl. Datum
   Future<Map<String, dynamic>?> bestSetForExercise(int exerciseId) async {
     final db = await database;
     final res = await db.rawQuery('''
@@ -235,7 +252,6 @@ class DB {
     return res.isNotEmpty ? res.first : null;
   }
 
-  /// Letzte Sätze (für Überblick/Verlauf)
   Future<List<Map<String, dynamic>>> recentSetsForExercise(int exerciseId, {int limit = 10}) async {
     final db = await database;
     return db.rawQuery('''
@@ -248,7 +264,6 @@ class DB {
     ''', [exerciseId, limit]);
   }
 
-  /// Volumen pro Tag (Aggregation)
   Future<List<Map<String, dynamic>>> volumePerDayForExercise(int exerciseId, {int limitDays = 30}) async {
     final db = await database;
     return db.rawQuery('''
