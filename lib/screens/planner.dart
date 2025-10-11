@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:offline_fitness_app/db/database_helper.dart';
 import 'package:offline_fitness_app/screens/sessions.dart';
+import 'package:offline_fitness_app/ui/design.dart'; // <- wichtig: AppScaffold & Farben
 
 class PlannerScreen extends StatefulWidget {
   const PlannerScreen({super.key});
@@ -65,7 +66,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final df = DateFormat('EEE, dd.MM.yyyy', 'de_DE');
 
     if (_loading) {
-      return Scaffold(
+      return AppScaffold(
         appBar: AppBar(title: const Text('🗓️ Wochen-Planer')),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -73,7 +74,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
     final noWorkouts = _workouts.isEmpty;
 
-    return Scaffold(
+    return AppScaffold(
       appBar: AppBar(title: const Text('🗓️ Wochen-Planer')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -106,6 +107,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                   Expanded(
                     child: DropdownButtonFormField<int>(
                       value: _weeks,
+                      dropdownColor: Theme.of(context).colorScheme.surface, // Kontrast sicher
                       decoration: const InputDecoration(labelText: 'Wochen'),
                       items: [1,2,3,4,6,8,12]
                           .map((w) => DropdownMenuItem(value: w, child: Text('$w')))
@@ -139,6 +141,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                           child: DropdownButtonFormField<int?>(
                             value: _weekdayMap[wd],
                             isExpanded: true,
+                            dropdownColor: Theme.of(context).colorScheme.surface,
                             decoration: const InputDecoration(labelText: 'Workout'),
                             items: <DropdownMenuItem<int?>>[
                               const DropdownMenuItem<int?>(value: null, child: Text('— kein —')),
