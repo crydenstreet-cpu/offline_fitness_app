@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 import '../db/database_helper.dart';
+import '../ui/design.dart';
+import '../ui/components.dart';
 
 class SessionScreen extends StatefulWidget {
   final int sessionId;
   final int workoutId;
   final String workoutName;
-  const SessionScreen({
-    super.key,
-    required this.sessionId,
-    required this.workoutId,
-    required this.workoutName,
-  });
+  const SessionScreen({super.key, required this.sessionId, required this.workoutId, required this.workoutName});
 
   @override
   State<SessionScreen> createState() => _SessionScreenState();
@@ -21,18 +18,11 @@ class _SessionScreenState extends State<SessionScreen> {
   List<Map<String, dynamic>> _sets = [];
 
   @override
-  void initState() {
-    super.initState();
-    _reload();
-  }
-
+  void initState() { super.initState(); _reload(); }
   Future<void> _reload() async {
     final exs = await DB.instance.getExercisesOfWorkout(widget.workoutId);
     final sets = await DB.instance.getSetsOfSession(widget.sessionId);
-    setState(() {
-      _workoutExercises = exs;
-      _sets = sets;
-    });
+    setState(() { _workoutExercises = exs; _sets = sets; });
   }
 
   List<Map<String, dynamic>> _setsForExercise(int exerciseId) {
@@ -47,15 +37,13 @@ class _SessionScreenState extends State<SessionScreen> {
     final saved = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
         title: const Text('Satz hinzufügen'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: repsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Wiederholungen')),
-            const SizedBox(height: 8),
-            TextField(controller: weightCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Gewicht')),
-          ],
-        ),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: repsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Wiederholungen')),
+          const SizedBox(height: 8),
+          TextField(controller: weightCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Gewicht')),
+        ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
           ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Speichern')),
@@ -66,7 +54,6 @@ class _SessionScreenState extends State<SessionScreen> {
     if (saved == true) {
       final reps = int.tryParse(repsCtrl.text.trim()) ?? 0;
       final weight = double.tryParse(weightCtrl.text.trim().replaceAll(',', '.')) ?? 0.0;
-
       final existing = _setsForExercise(exerciseId);
       final nextIndex = (existing.isEmpty ? 0 : (existing.last['set_index'] as int)) + 1;
 
@@ -83,45 +70,43 @@ class _SessionScreenState extends State<SessionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AppScaffold(
       appBar: AppBar(title: Text('Training: ${widget.workoutName}')),
       body: _workoutExercises.isEmpty
           ? const Center(child: Text('Keine Übungen im Workout.'))
           : ListView.builder(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+              padding: const EdgeInsets.only(bottom: 90),
               itemCount: _workoutExercises.length,
               itemBuilder: (context, i) {
                 final e = _workoutExercises[i];
                 final exSets = _setsForExercise(e['id'] as int);
-                return Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(e['name'] ?? '', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        const Divider(),
-                        if (exSets.isEmpty) const Text('Noch keine Sätze.'),
-                        if (exSets.isNotEmpty)
-                          ...exSets.map(
-                            (s) => ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              leading: CircleAvatar(child: Text('${s['set_index']}')),
-                              title: Text('${s['reps']} × ${s['weight']} ${e['unit'] ?? 'kg'}'),
-                            ),
-                          ),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: OutlinedButton.icon(
-                            onPressed: () => _addSetDialog(e['id'] as int),
-                            icon: const Icon(Icons.add),
-                            label: const Text('Satz hinzufügen'),
-                          ),
-                        )
-                      ],
-                    ),
+                return AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(e['name'] ?? '', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                        subtitle: Text([e['muscle_group'], e['unit']].where((x) => (x ?? '').toString().isNotEmpty).join(' • ')),
+                        trailing: OutlinedButton.icon(
+                          onPressed: () => _addSetDialog(e['id'] as int),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Satz'),
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      if (exSets.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8),
+                          child: Text('Noch keine Sätze.'),
+                        ),
+                      if (exSets.isNotEmpty)
+                        ...exSets.map((s) => SetRow(
+                              setNumber: s['set_index'] ?? 0,
+                              weight: '${s['weight']}',
+                              reps: '${s['reps']} Wdh.',
+                            )),
+                    ],
                   ),
                 );
               },
