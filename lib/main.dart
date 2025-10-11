@@ -15,7 +15,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Offline Fitness App',
-      theme: buildAppTheme(),  // <- AMOLED + Purple
+      theme: buildAppTheme(),
       home: const _Nav(),
     );
   }
@@ -73,7 +73,7 @@ class _Stub extends StatelessWidget {
           child: ListTile(
             title: const Text('Willkommen!'),
             subtitle: Text(
-              'AMOLED-Theme aktiv. Wenn du irgendwo harte Farben siehst, sag mir die Datei/Zeile, dann räum ich es auf.',
+              'Globales Theme aktiv. Inhalte folgen.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
