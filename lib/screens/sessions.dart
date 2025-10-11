@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../db/database_helper.dart';
 import '../ui/design.dart';
-import '../ui/components.dart';
 
 class SessionScreen extends StatefulWidget {
   final int sessionId;
@@ -37,7 +36,6 @@ class _SessionScreenState extends State<SessionScreen> {
     final saved = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
         title: const Text('Satz hinzufügen'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(controller: repsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Wiederholungen')),
@@ -80,12 +78,11 @@ class _SessionScreenState extends State<SessionScreen> {
               itemBuilder: (context, i) {
                 final e = _workoutExercises[i];
                 final exSets = _setsForExercise(e['id'] as int);
-                return AppCard(
+                return Card(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       ListTile(
-                        contentPadding: EdgeInsets.zero,
                         title: Text(e['name'] ?? '', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                         subtitle: Text([e['muscle_group'], e['unit']].where((x) => (x ?? '').toString().isNotEmpty).join(' • ')),
                         trailing: OutlinedButton.icon(
@@ -97,14 +94,13 @@ class _SessionScreenState extends State<SessionScreen> {
                       const Divider(height: 1),
                       if (exSets.isEmpty)
                         const Padding(
-                          padding: EdgeInsets.only(top: 8),
+                          padding: EdgeInsets.only(left: 16, right: 16, top: 10, bottom: 12),
                           child: Text('Noch keine Sätze.'),
                         ),
                       if (exSets.isNotEmpty)
-                        ...exSets.map((s) => SetRow(
-                              setNumber: s['set_index'] ?? 0,
-                              weight: '${s['weight']}',
-                              reps: '${s['reps']} Wdh.',
+                        ...exSets.map((s) => ListTile(
+                              leading: CircleAvatar(child: Text('${s['set_index']}')),
+                              title: Text('${s['reps']} × ${s['weight']}'),
                             )),
                     ],
                   ),
