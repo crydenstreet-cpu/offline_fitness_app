@@ -19,7 +19,7 @@ class _SessionScreenState extends State<SessionScreen> {
   @override
   void initState() { super.initState(); _reload(); }
   Future<void> _reload() async {
-    final exs = await DB.instance.getExercisesOfWorkout(widget.workoutId);
+    final exs = await DB.instance.getExercisesOfWorkout(widget.workoutId); // enthält planned_* + exercise-Felder
     final sets = await DB.instance.getSetsOfSession(widget.sessionId);
     setState(() { _workoutExercises = exs; _sets = sets; });
   }
@@ -29,18 +29,25 @@ class _SessionScreenState extends State<SessionScreen> {
       ..sort((a, b) => (a['set_index'] as int).compareTo(b['set_index'] as int));
   }
 
-  Future<void> _addSetDialog(int exerciseId) async {
-    final repsCtrl = TextEditingController();
-    final weightCtrl = TextEditingController();
+  Future<void> _addSetDialog(Map<String, dynamic> ex) async {
+    final exerciseId = ex['id'] as int;
+    final unit = (ex['unit'] ?? 'kg').toString();
+
+    // Prefill aus Plan -> falls kein Gewicht geplant, nimm letztes verwendetes Gewicht
+    final lastW = await DB.instance.lastWeightForExercise(exerciseId);
+    final repsCtrl = TextEditingController(text: (ex['planned_reps'] ?? ex['default_reps'] ?? 10).toString());
+    final weightCtrl = TextEditingController(
+      text: ((ex['planned_weight'] as num?)?.toDouble() ?? lastW ?? 0).toString(),
+    );
 
     final saved = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Satz hinzufügen'),
+        title: Text('Satz – ${ex['name']}'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(controller: repsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Wiederholungen')),
           const SizedBox(height: 8),
-          TextField(controller: weightCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Gewicht')),
+          TextField(controller: weightCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: 'Gewicht ($unit)')),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
@@ -53,7 +60,7 @@ class _SessionScreenState extends State<SessionScreen> {
       final reps = int.tryParse(repsCtrl.text.trim()) ?? 0;
       final weight = double.tryParse(weightCtrl.text.trim().replaceAll(',', '.')) ?? 0.0;
       final existing = _setsForExercise(exerciseId);
-      final nextIndex = (existing.isEmpty ? 0 : (existing.last['set_index'] as int)) + 1;
+      final nextIndex = (existing.isEmpty ? 1 : ((existing.last['set_index'] as int) + 1));
 
       await DB.instance.insertSet(
         sessionId: widget.sessionId,
@@ -78,29 +85,39 @@ class _SessionScreenState extends State<SessionScreen> {
               itemBuilder: (context, i) {
                 final e = _workoutExercises[i];
                 final exSets = _setsForExercise(e['id'] as int);
+
+                final unit = (e['unit'] ?? 'kg').toString();
+                final planSets = e['planned_sets'] ?? e['default_sets'];
+                final planReps = e['planned_reps'] ?? e['default_reps'];
+                final planWeight = e['planned_weight'];
+
                 return Card(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       ListTile(
                         title: Text(e['name'] ?? '', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                        subtitle: Text([e['muscle_group'], e['unit']].where((x) => (x ?? '').toString().isNotEmpty).join(' • ')),
+                        subtitle: Text(
+                          'Plan: ${planSets ?? '-'}×${planReps ?? '-'}'
+                          '${planWeight != null ? ' @ ${_fmt(planWeight)} $unit' : ''}',
+                        ),
                         trailing: OutlinedButton.icon(
-                          onPressed: () => _addSetDialog(e['id'] as int),
+                          onPressed: () => _addSetDialog(e),
                           icon: const Icon(Icons.add),
                           label: const Text('Satz'),
                         ),
                       ),
                       const Divider(height: 1),
                       if (exSets.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.only(left: 16, right: 16, top: 10, bottom: 12),
-                          child: Text('Noch keine Sätze.'),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 16, right: 16, top: 10, bottom: 12),
+                          child: Text('Noch keine Sätze. '
+                              'Tippe auf „Satz“, Werte sind aus dem Plan vorausgefüllt.'),
                         ),
                       if (exSets.isNotEmpty)
                         ...exSets.map((s) => ListTile(
                               leading: CircleAvatar(child: Text('${s['set_index']}')),
-                              title: Text('${s['reps']} × ${s['weight']}'),
+                              title: Text('${s['reps']} × ${_fmt(s['weight'])} $unit'),
                             )),
                     ],
                   ),
@@ -108,5 +125,11 @@ class _SessionScreenState extends State<SessionScreen> {
               },
             ),
     );
+  }
+
+  String _fmt(Object? n) {
+    if (n == null) return '-';
+    final d = (n is num) ? n.toDouble() : double.tryParse('$n') ?? 0;
+    return d.toStringAsFixed(d.truncateToDouble() == d ? 0 : 2);
   }
 }
