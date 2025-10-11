@@ -3,7 +3,6 @@ import '../db/database_helper.dart';
 
 class ExercisesScreen extends StatefulWidget {
   const ExercisesScreen({super.key});
-
   @override
   State<ExercisesScreen> createState() => _ExercisesScreenState();
 }
@@ -33,25 +32,26 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
     final saved = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('🏋️‍♂️ Neue Übung anlegen'),
+        title: const Text('🏋️ Neue Übung'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Name')),
+              const SizedBox(height: 8),
               TextField(controller: groupCtrl, decoration: const InputDecoration(labelText: 'Muskelgruppe')),
+              const SizedBox(height: 8),
               TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'Beschreibung')),
+              const SizedBox(height: 8),
               TextField(controller: unitCtrl, decoration: const InputDecoration(labelText: 'Einheit (z. B. kg)')),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               TextField(
-                controller: setsCtrl,
-                keyboardType: TextInputType.number,
+                controller: setsCtrl, keyboardType: TextInputType.number,
                 decoration: const InputDecoration(labelText: 'Standard-Sätze'),
               ),
+              const SizedBox(height: 8),
               TextField(
-                controller: repsCtrl,
-                keyboardType: TextInputType.number,
+                controller: repsCtrl, keyboardType: TextInputType.number,
                 decoration: const InputDecoration(labelText: 'Standard-Wiederholungen'),
               ),
             ],
@@ -64,11 +64,11 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
       ),
     );
 
-    if (saved == true) {
+    if (saved == true && nameCtrl.text.trim().isNotEmpty) {
       await DB.instance.insertExercise({
         'name': nameCtrl.text.trim(),
-        'muscle_group': groupCtrl.text.trim(),
-        'description': descCtrl.text.trim(),
+        'muscle_group': groupCtrl.text.trim().isEmpty ? null : groupCtrl.text.trim(),
+        'description': descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim(),
         'unit': unitCtrl.text.trim().isEmpty ? 'kg' : unitCtrl.text.trim(),
         'default_sets': int.tryParse(setsCtrl.text.trim()) ?? 3,
         'default_reps': int.tryParse(repsCtrl.text.trim()) ?? 10,
@@ -78,10 +78,9 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
   }
 
   Future<void> _deleteExercise(int id) async {
-    final confirm = await showDialog<bool>(
+    final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
         title: const Text('Löschen?'),
         content: const Text('Diese Übung wirklich löschen?'),
         actions: [
@@ -90,7 +89,7 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
         ],
       ),
     );
-    if (confirm == true) {
+    if (ok == true) {
       await DB.instance.deleteExercise(id);
       _reload();
     }
@@ -99,13 +98,7 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('🏋️ Übungen'),
-        backgroundColor: Colors.black,
-        actions: [
-          IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
-        ],
-      ),
+      appBar: AppBar(title: const Text('📋 Übungen')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _addExerciseDialog,
         icon: const Icon(Icons.add),
@@ -118,16 +111,19 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
           final list = snap.data!;
           if (list.isEmpty) return const Center(child: Text('Noch keine Übungen angelegt.'));
           return ListView.builder(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 90),
             itemCount: list.length,
             itemBuilder: (context, i) {
               final e = list[i];
               return Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                 child: ListTile(
                   title: Text(e['name'] ?? ''),
                   subtitle: Text(
-                    'Muskelgruppe: ${e['muscle_group'] ?? '-'}\n'
-                    'Sätze: ${e['default_sets'] ?? 3} • Wiederholungen: ${e['default_reps'] ?? 10}',
+                    [
+                      if ((e['muscle_group'] ?? '').toString().isNotEmpty) 'Muskelgruppe: ${e['muscle_group']}',
+                      'Sätze: ${e['default_sets'] ?? 3} • Wdh: ${e['default_reps'] ?? 10}',
+                    ].join('\n'),
                   ),
                   trailing: IconButton(
                     icon: const Icon(Icons.delete, color: Colors.redAccent),
