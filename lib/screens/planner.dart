@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:offline_fitness_app/db/database_helper.dart';
-import 'package:offline_fitness_app/ui/design.dart';
 import 'package:offline_fitness_app/screens/sessions.dart';
 
 class PlannerScreen extends StatefulWidget {
@@ -16,8 +15,10 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
   // Wochentag (1=Mo .. 7=So) -> workoutId (nullable)
   final Map<int, int?> _weekdayMap = {1:null,2:null,3:null,4:null,5:null,6:null,7:null};
+
   List<Map<String, dynamic>> _workouts = [];
   List<Map<String, dynamic>> _upcoming = [];
+  bool _loading = true;
 
   @override
   void initState() {
@@ -26,9 +27,10 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 
   Future<void> _load() async {
+    setState(() => _loading = true);
     final ws = await DB.instance.getWorkouts();
     final up = await DB.instance.upcomingSchedule(days: 21);
-    setState(() { _workouts = ws; _upcoming = up; });
+    setState(() { _workouts = ws; _upcoming = up; _loading = false; });
   }
 
   Future<void> _pickStartDate() async {
@@ -65,11 +67,29 @@ class _PlannerScreenState extends State<PlannerScreen> {
   Widget build(BuildContext context) {
     final df = DateFormat('EEE, dd.MM.yyyy', 'de_DE');
 
+    if (_loading) {
+      return const Scaffold(
+        appBar: AppBar(title: Text('🗓️ Wochen-Planer')),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final noWorkouts = _workouts.isEmpty;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('🗓️ Wochen-Planer')),
+      appBar: const AppBar(title: Text('🗓️ Wochen-Planer')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         children: [
+          if (noWorkouts)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: const Text('Noch keine Workouts angelegt'),
+                subtitle: const Text('Lege zuerst Workouts im Tab „Workouts“ an. Danach kannst du sie hier zuweisen.'),
+              ),
+            ),
+
           // Parameter
           Card(
             child: Padding(
@@ -102,6 +122,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
           ),
 
           const SizedBox(height: 8),
+
           // Wochenmuster
           Card(
             child: Padding(
@@ -118,13 +139,14 @@ class _PlannerScreenState extends State<PlannerScreen> {
                         SizedBox(width: 32, child: Text(_weekdayLabel(wd))),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: DropdownButtonFormField<int>(
+                          // WICHTIG: Typ ist jetzt int? (nullable)!
+                          child: DropdownButtonFormField<int?>(
                             value: _weekdayMap[wd],
                             isExpanded: true,
                             decoration: const InputDecoration(labelText: 'Workout'),
-                            items: [
-                              const DropdownMenuItem<int>(value: null, child: Text('— kein —')),
-                              ..._workouts.map((w) => DropdownMenuItem<int>(
+                            items: <DropdownMenuItem<int?>>[
+                              const DropdownMenuItem<int?>(value: null, child: Text('— kein —')),
+                              ..._workouts.map((w) => DropdownMenuItem<int?>(
                                 value: w['id'] as int,
                                 child: Text(w['name'] ?? ''),
                               ))
@@ -138,7 +160,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 }),
                 const SizedBox(height: 12),
                 ElevatedButton.icon(
-                  onPressed: _generate,
+                  onPressed: noWorkouts ? null : _generate,
                   icon: const Icon(Icons.save),
                   label: const Text('Plan erzeugen & speichern'),
                 ),
