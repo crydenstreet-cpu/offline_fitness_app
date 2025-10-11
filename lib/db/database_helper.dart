@@ -19,7 +19,7 @@ class DB {
 
     return openDatabase(
       path,
-      version: 3, // ⬅️ Schema v3 (mit Plan-Feldern)
+      version: 4, // ⬅️ Schema v4 (inkl. workout_schedule)
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -98,26 +98,51 @@ class DB {
             FOREIGN KEY(linked_session_id) REFERENCES sessions(id) ON DELETE SET NULL
           );
         ''');
+
+        // ⬇️ NEU: Datum → Workout (YYYY-MM-DD)
+        await db.execute('''
+          CREATE TABLE workout_schedule(
+            date TEXT PRIMARY KEY,
+            workout_id INTEGER NOT NULL,
+            note TEXT,
+            FOREIGN KEY(workout_id) REFERENCES workouts(id) ON DELETE CASCADE
+          );
+        ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        // v2 brachte default_sets/default_reps (falls von sehr alt)
+        // v2: default_sets / default_reps
         if (oldVersion < 2) {
           final cols = await db.rawQuery('PRAGMA table_info(exercises);');
-          final hasSets = cols.any((c) => (c['name'] as String?) == 'default_sets');
-          final hasReps = cols.any((c) => (c['name'] as String?) == 'default_reps');
-          if (!hasSets) await db.execute('ALTER TABLE exercises ADD COLUMN default_sets INTEGER DEFAULT 3;');
-          if (!hasReps) await db.execute('ALTER TABLE exercises ADD COLUMN default_reps INTEGER DEFAULT 10;');
+          if (!cols.any((c) => (c['name'] as String?) == 'default_sets')) {
+            await db.execute('ALTER TABLE exercises ADD COLUMN default_sets INTEGER DEFAULT 3;');
+          }
+          if (!cols.any((c) => (c['name'] as String?) == 'default_reps')) {
+            await db.execute('ALTER TABLE exercises ADD COLUMN default_reps INTEGER DEFAULT 10;');
+          }
         }
-        // v3: Plan-Felder auf workout_exercises
+        // v3: planned_* in workout_exercises
         if (oldVersion < 3) {
           final cols = await db.rawQuery('PRAGMA table_info(workout_exercises);');
-          bool hasPlSets   = cols.any((c) => (c['name'] as String?) == 'planned_sets');
-          bool hasPlReps   = cols.any((c) => (c['name'] as String?) == 'planned_reps');
-          bool hasPlWeight = cols.any((c) => (c['name'] as String?) == 'planned_weight');
-
-          if (!hasPlSets)   await db.execute('ALTER TABLE workout_exercises ADD COLUMN planned_sets INTEGER;');
-          if (!hasPlReps)   await db.execute('ALTER TABLE workout_exercises ADD COLUMN planned_reps INTEGER;');
-          if (!hasPlWeight) await db.execute('ALTER TABLE workout_exercises ADD COLUMN planned_weight REAL;');
+          if (!cols.any((c) => (c['name'] as String?) == 'planned_sets'))   {
+            await db.execute('ALTER TABLE workout_exercises ADD COLUMN planned_sets INTEGER;');
+          }
+          if (!cols.any((c) => (c['name'] as String?) == 'planned_reps'))   {
+            await db.execute('ALTER TABLE workout_exercises ADD COLUMN planned_reps INTEGER;');
+          }
+          if (!cols.any((c) => (c['name'] as String?) == 'planned_weight')) {
+            await db.execute('ALTER TABLE workout_exercises ADD COLUMN planned_weight REAL;');
+          }
+        }
+        // v4: workout_schedule
+        if (oldVersion < 4) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS workout_schedule(
+              date TEXT PRIMARY KEY,
+              workout_id INTEGER NOT NULL,
+              note TEXT,
+              FOREIGN KEY(workout_id) REFERENCES workouts(id) ON DELETE CASCADE
+            );
+          ''');
         }
       },
     );
@@ -156,7 +181,6 @@ class DB {
     return db.query('workouts', orderBy: 'created_at DESC');
   }
 
-  /// Fügt Übung ins Workout und übernimmt default_sets/default_reps als Plan.
   Future<int> addExerciseToWorkout(int workoutId, int exerciseId, {int? position}) async {
     final db = await database;
     final linkId = await db.insert('workout_exercises', {
@@ -164,15 +188,12 @@ class DB {
       'exercise_id': exerciseId,
       'position': position
     });
-
-    // Defaults aus exercise übernehmen
     final ex = (await db.query('exercises', where: 'id = ?', whereArgs: [exerciseId], limit: 1)).first;
     await db.update(
       'workout_exercises',
       {
         'planned_sets': ex['default_sets'],
         'planned_reps': ex['default_reps'],
-        // planned_weight bleibt zunächst NULL – User setzt es selbst
       },
       where: 'id = ?',
       whereArgs: [linkId],
@@ -245,7 +266,6 @@ class DB {
         orderBy: 'exercise_id ASC, set_index ASC');
   }
 
-  /// Letztes verwendetes Gewicht für eine Übung (global)
   Future<double?> lastWeightForExercise(int exerciseId) async {
     final db = await database;
     final res = await db.rawQuery('''
@@ -322,7 +342,7 @@ class DB {
     final db = await database;
     return db.rawQuery('''
       SELECT substr(s.started_at, 1, 10) AS day,
-             SUM(ws.weight * ws.reps) AS day_volume,
+             SUM(ws.weight * reps) AS day_volume,
              COUNT(*) AS sets_count
       FROM workout_sets ws
       JOIN sessions s ON s.id = ws.session_id
@@ -332,4 +352,62 @@ class DB {
       LIMIT ?
     ''', [exerciseId, limitDays]);
   }
+
+  // ---------- SCHEDULE (NEU) ----------
+  /// Einzelnen Tag planen/überschreiben (YYYY-MM-DD)
+  Future<void> upsertSchedule(String ymd, int workoutId, {String? note}) async {
+    final db = await database;
+    await db.insert('workout_schedule', {
+      'date': ymd, 'workout_id': workoutId, 'note': note
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// Plan für mehrere Wochen erzeugen: mapping weekday(1=Mo..7=So) -> workoutId
+  Future<void> generateSchedule({
+    required DateTime startDate,
+    required int weeks,
+    required Map<int, int?> weekdayToWorkoutId,
+  }) async {
+    final db = await database;
+    final batch = db.batch();
+    // Start auf Tagesbeginn normalisieren
+    DateTime start = DateTime(startDate.year, startDate.month, startDate.day);
+    final totalDays = weeks * 7;
+    for (int d = 0; d < totalDays; d++) {
+      final day = start.add(Duration(days: d));
+      final weekday = day.weekday; // 1..7 (Mo..So)
+      final workoutId = weekdayToWorkoutId[weekday];
+      if (workoutId != null) {
+        final ymd = _ymd(day);
+        batch.insert('workout_schedule', {
+          'date': ymd,
+          'workout_id': workoutId,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+    }
+    await batch.commit(noResult: true);
+  }
+
+  /// Plan in Datumsspanne holen (inkl.)
+  Future<List<Map<String, dynamic>>> getScheduleBetween(DateTime from, DateTime to) async {
+    final db = await database;
+    final fromY = _ymd(from);
+    final toY   = _ymd(to);
+    return db.rawQuery('''
+      SELECT s.date, s.workout_id, w.name AS workout_name
+      FROM workout_schedule s
+      JOIN workouts w ON w.id = s.workout_id
+      WHERE s.date >= ? AND s.date <= ?
+      ORDER BY s.date ASC
+    ''', [fromY, toY]);
+  }
+
+  /// Nächste N geplante Tage ab heute
+  Future<List<Map<String, dynamic>>> upcomingSchedule({int days = 21}) async {
+    final today = DateTime.now();
+    return getScheduleBetween(today, today.add(Duration(days: days)));
+  }
+
+  String _ymd(DateTime d) =>
+      '${d.year.toString().padLeft(4,'0')}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
 }
