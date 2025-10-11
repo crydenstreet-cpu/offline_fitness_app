@@ -10,9 +10,9 @@ class CalendarMonthScreen extends StatefulWidget {
 }
 
 class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
-  late DateTime _month; // aktueller Monat (1. des Monats)
+  late DateTime _month; // 1. des Monats
   List<Map<String, dynamic>> _workouts = [];
-  Map<String, Map<String, dynamic>> _scheduleByYmd = {}; // 'YYYY-MM-DD' -> {date, workout_id, workout_name}
+  Map<String, Map<String, dynamic>> _scheduleByYmd = {};
   bool _loading = true;
 
   @override
@@ -26,8 +26,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     final from = _month;
-    final to = DateTime(_month.year, _month.month + 1, 0); // letzter Tag im Monat
-
+    final to = DateTime(_month.year, _month.month + 1, 0);
     final ws = await DB.instance.getWorkouts();
     final sch = await DB.instance.getScheduleBetween(from, to);
     final map = <String, Map<String, dynamic>>{};
@@ -41,30 +40,15 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     });
   }
 
-  void _prevMonth() {
-    setState(() {
-      _month = DateTime(_month.year, _month.month - 1, 1);
-    });
-    _load();
-  }
-
-  void _nextMonth() {
-    setState(() {
-      _month = DateTime(_month.year, _month.month + 1, 1);
-    });
-    _load();
-  }
-
+  void _prevMonth() { setState(() => _month = DateTime(_month.year, _month.month - 1, 1)); _load(); }
+  void _nextMonth() { setState(() => _month = DateTime(_month.year, _month.month + 1, 1)); _load(); }
   void _goToday() {
     final now = DateTime.now();
-    setState(() {
-      _month = DateTime(now.year, now.month, 1);
-    });
+    setState(() => _month = DateTime(now.year, now.month, 1));
     _load();
   }
 
   Future<void> _editDay(DateTime day) async {
-    // aktuelles Mapping dieses Tages
     final ymd = _ymd(day);
     int? selected = _scheduleByYmd[ymd]?['workout_id'] as int?;
 
@@ -141,7 +125,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
       if (selected == null) {
         await DB.instance.deleteSchedule(ymd);
       } else {
-        await DB.instance.upsertSchedule(ymd, selected!);
+        await DB.instance.upsertSchedule(ymd, selected!); // selected ist sicher nicht null
       }
       await _load();
     }
@@ -174,7 +158,6 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
         actions: [
           IconButton(onPressed: _prevMonth, icon: const Icon(Icons.chevron_left)),
           IconButton(onPressed: _nextMonth, icon: const Icon(Icons.chevron_right)),
-          IconButton(onPressed: _goToday, icon: const Icon(Icons.today)),
         ],
       ),
       body: _loading
@@ -191,6 +174,15 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
                     onEditDay: _editDay,
                     onStartDay: _startFromDay,
                   )),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _goToday,
+                      icon: const Icon(Icons.today),
+                      label: const Text('Heute'),
+                    ),
+                  )
                 ],
               ),
             ),
@@ -235,8 +227,7 @@ class _MonthGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final first = month;
     final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
-    // Flutter DateTime.weekday: 1=Mo...7=So
-    final leading = first.weekday - 1; // Anzahl leerer Zellen vor dem 1.
+    final leading = first.weekday - 1; // 0..6 (Mo=1)
     final totalCells = ((leading + daysInMonth) / 7).ceil() * 7;
 
     final today = DateTime.now();
@@ -277,7 +268,6 @@ class _MonthGrid extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Tagnummer
                 Text(
                   '$dayNum',
                   style: TextStyle(
