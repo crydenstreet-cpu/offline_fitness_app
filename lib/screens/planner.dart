@@ -69,7 +69,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
     if (_loading) {
       return const Scaffold(
-        appBar: AppBar(title: Text('🗓️ Wochen-Planer')),
+        appBar: AppBar(title: const Text('🗓️ Wochen-Planer')),
         body: Center(child: CircularProgressIndicator()),
       );
     }
@@ -77,7 +77,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final noWorkouts = _workouts.isEmpty;
 
     return Scaffold(
-      appBar: const AppBar(title: Text('🗓️ Wochen-Planer')),
+      appBar: AppBar(title: const Text('🗓️ Wochen-Planer')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         children: [
