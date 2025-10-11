@@ -141,7 +141,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
       if (selected == null) {
         await DB.instance.deleteSchedule(ymd);
       } else {
-        await DB.instance.upsertSchedule(ymd, selected);
+        await DB.instance.upsertSchedule(ymd, selected!);
       }
       await _load();
     }
