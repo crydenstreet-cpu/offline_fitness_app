@@ -1,3 +1,4 @@
+import 'screens/journal.dart'; // oben ergänzen
 import 'package:flutter/material.dart';
 import 'screens/workouts.dart';
 import 'screens/exercises.dart';
@@ -35,13 +36,14 @@ class _NavState extends State<_Nav> {
   int _index = 0;
 
   final List<Widget> _pages = const [
-    _Stub('🏠 Dashboard'),
-    WorkoutsScreen(),
-    ExercisesScreen(),
-    StatsScreen(),
-    _Stub('📖 Tagebuch'),
-    _Stub('⚙️ Einstellungen'),
-  ];
+  _Stub('🏠 Dashboard'),
+  WorkoutsScreen(),
+  ExercisesScreen(),
+  StatsScreen(),
+  JournalScreen(),  // ✅ hier statt _Stub
+  _Stub('⚙️ Einstellungen'),
+];
+
 
   @override
   Widget build(BuildContext context) {
