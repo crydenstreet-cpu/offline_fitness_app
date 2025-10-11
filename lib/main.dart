@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import 'screens/calendar_month.dart';   // ⬅️ neu
+import 'screens/calendar_month.dart';
 import 'screens/planner.dart';
 import 'screens/workouts.dart';
 import 'screens/exercises.dart';
 import 'screens/stats.dart';
 import 'screens/journal.dart';
-import 'ui/design.dart';
+import 'ui/design.dart'; // dein Theme
 
 void main() => runApp(const MyApp());
 
@@ -33,8 +33,8 @@ class _NavState extends State<_Nav> {
   int _index = 0;
 
   final List<Widget> _pages = const [
-    CalendarMonthScreen(),   // 📆 Monatsansicht
-    PlannerScreen(),         // 🗓️ Wochen-Generator
+    CalendarMonthScreen(),
+    PlannerScreen(),
     WorkoutsScreen(),
     ExercisesScreen(),
     StatsScreen(),
