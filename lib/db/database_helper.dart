@@ -219,6 +219,7 @@ class DB {
     return res.isNotEmpty ? res.first : null;
   }
 
+  /// PR-Satz (höchstes Gewicht, bei Gleichstand mehr Reps), inkl. Datum
   Future<Map<String, dynamic>?> bestSetForExercise(int exerciseId) async {
     final db = await database;
     final res = await db.rawQuery('''
@@ -232,6 +233,7 @@ class DB {
     return res.isNotEmpty ? res.first : null;
   }
 
+  /// Letzte Sätze (für Überblick/Verlauf)
   Future<List<Map<String, dynamic>>> recentSetsForExercise(int exerciseId, {int limit = 10}) async {
     final db = await database;
     return db.rawQuery('''
@@ -244,6 +246,7 @@ class DB {
     ''', [exerciseId, limit]);
   }
 
+  /// Volumen pro Tag (Aggregation)
   Future<List<Map<String, dynamic>>> volumePerDayForExercise(int exerciseId, {int limitDays = 30}) async {
     final db = await database;
     return db.rawQuery('''
