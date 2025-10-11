@@ -1,56 +1,102 @@
 import 'package:flutter/material.dart';
 
+/// AMOLED Black + Electric Purple Theme
+/// - Hintergrund: #000000 (echtes Schwarz für OLED)
+//  - Primär:     #7C4DFF (Electric Purple)
+//  - Akzent:     #00FFC6 (Neon Mint) als sekundärer Farbakzent
+//  - Text:       Weiß / 80% Weiß für Muted
+
 class AppColors {
-  static const bgTop = Color(0xFF0E0F13);
-  static const bgBottom = Color(0xFF12151B);
-  static const surface = Color(0xFF171A20);
-  static const surface2 = Color(0xFF1E232B);
-  static const primary = Color(0xFF00E0C6); // sportliches Cyan
+  static const black = Color(0xFF000000);
+  static const surface = Color(0xFF0A0A0A);
+  static const surface2 = Color(0xFF121212);
+  static const purple = Color(0xFF7C4DFF);
+  static const mint = Color(0xFF00FFC6);
   static const text = Colors.white;
-  static const textMuted = Colors.white70;
+  static const textMuted = Color(0xCCFFFFFF);
 }
 
 ThemeData buildAppTheme() {
-  final base = ThemeData.dark();
+  final base = ThemeData.dark(useMaterial3: true);
+
   return base.copyWith(
-    scaffoldBackgroundColor: AppColors.bgBottom,
+    scaffoldBackgroundColor: AppColors.black,
     cardColor: AppColors.surface,
+    splashFactory: InkSparkle.splashFactory,
     colorScheme: const ColorScheme.dark(
-      primary: AppColors.primary,
-      secondary: AppColors.surface2,
+      primary: AppColors.purple,
+      secondary: AppColors.mint,
       surface: AppColors.surface,
-      background: AppColors.bgBottom,
+      background: AppColors.black,
+      onPrimary: Colors.white,
+      onSecondary: Colors.black,
+      onSurface: Colors.white,
+      onBackground: Colors.white,
+    ),
+    textTheme: base.textTheme.copyWith(
+      headlineSmall: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.text),
+      titleMedium:  const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.text),
+      bodyMedium:   const TextStyle(fontSize: 14, color: AppColors.textMuted),
     ),
     appBarTheme: const AppBarTheme(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.black,
+      surfaceTintColor: Colors.transparent,
       elevation: 0,
       centerTitle: false,
-      titleTextStyle: TextStyle(
-        fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.text),
+      titleTextStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.text),
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: Colors.transparent,
-      selectedItemColor: AppColors.primary,
+      backgroundColor: AppColors.black,
+      selectedItemColor: AppColors.purple,
       unselectedItemColor: AppColors.textMuted,
       type: BottomNavigationBarType.fixed,
       elevation: 0,
     ),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
-      backgroundColor: AppColors.primary, foregroundColor: Colors.black),
+      backgroundColor: AppColors.purple,
+      foregroundColor: Colors.white,
+      elevation: 4,
+      shape: StadiumBorder(),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.purple,
+        foregroundColor: Colors.white,
+        minimumSize: const Size.fromHeight(52),
+        textStyle: const TextStyle(fontWeight: FontWeight.w800),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.mint,
+        side: const BorderSide(color: AppColors.mint, width: 1.2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+    ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: AppColors.surface2,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide.none,
       ),
       labelStyle: const TextStyle(color: AppColors.textMuted),
     ),
     dividerTheme: const DividerThemeData(color: Colors.white10, thickness: 1),
+    cardTheme: CardTheme(
+      color: AppColors.surface,
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    ),
+    iconTheme: const IconThemeData(color: AppColors.text),
   );
 }
 
+/// Einfacher Scaffold-Wrapper ohne Verläufe (AMOLED-schwarz)
 class AppScaffold extends StatelessWidget {
   final PreferredSizeWidget? appBar;
   final Widget body;
@@ -64,15 +110,7 @@ class AppScaffold extends StatelessWidget {
       appBar: appBar,
       floatingActionButton: fab,
       bottomNavigationBar: bottom,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft, end: Alignment.bottomRight,
-            colors: [AppColors.bgTop, AppColors.bgBottom],
-          ),
-        ),
-        child: body,
-      ),
+      body: body,
     );
   }
 }
