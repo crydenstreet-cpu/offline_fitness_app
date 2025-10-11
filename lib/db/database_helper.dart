@@ -11,63 +11,6 @@ class DB {
     if (_db != null) return _db!;
     _db = await _open();
     return _db!;
-      /// Liefert PR/Volumen/Sätze (gesamt) – existiert evtl. schon in deiner Datei.
-  Future<Map<String, dynamic>?> progressForExercise(int exerciseId) async {
-    final db = await database;
-    final res = await db.rawQuery('''
-      SELECT 
-        MAX(weight) AS max_weight,
-        SUM(weight * reps) AS total_volume,
-        COUNT(*) AS total_sets
-      FROM workout_sets
-      WHERE exercise_id = ?
-    ''', [exerciseId]);
-    return res.isNotEmpty ? res.first : null;
-  }
-
-  /// Bester Satz (PR) inkl. Reps + Datum der Session
-  Future<Map<String, dynamic>?> bestSetForExercise(int exerciseId) async {
-    final db = await database;
-    final res = await db.rawQuery('''
-      SELECT ws.weight, ws.reps, s.started_at
-      FROM workout_sets ws
-      JOIN sessions s ON s.id = ws.session_id
-      WHERE ws.exercise_id = ?
-      ORDER BY ws.weight DESC, ws.reps DESC
-      LIMIT 1
-    ''', [exerciseId]);
-    return res.isNotEmpty ? res.first : null;
-  }
-
-  /// Letzte N Sätze einer Übung (für Verlauf/Überblick)
-  Future<List<Map<String, dynamic>>> recentSetsForExercise(int exerciseId, {int limit = 10}) async {
-    final db = await database;
-    return db.rawQuery('''
-      SELECT ws.set_index, ws.reps, ws.weight, s.started_at
-      FROM workout_sets ws
-      JOIN sessions s ON s.id = ws.session_id
-      WHERE ws.exercise_id = ?
-      ORDER BY s.started_at DESC, ws.set_index DESC
-      LIMIT ?
-    ''', [exerciseId, limit]);
-  }
-
-  /// Volumen pro Tag für eine Übung (Aggregation)
-  Future<List<Map<String, dynamic>>> volumePerDayForExercise(int exerciseId, {int limitDays = 30}) async {
-    final db = await database;
-    return db.rawQuery('''
-      SELECT substr(s.started_at, 1, 10) AS day,
-             SUM(ws.weight * ws.reps) AS day_volume,
-             COUNT(*) AS sets_count
-      FROM workout_sets ws
-      JOIN sessions s ON s.id = ws.session_id
-      WHERE ws.exercise_id = ?
-      GROUP BY day
-      ORDER BY day DESC
-      LIMIT ?
-    ''', [exerciseId, limitDays]);
-  }
-
   }
 
   Future<Database> _open() async {
@@ -133,7 +76,7 @@ class DB {
             FOREIGN KEY(exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
           );
         ''');
-        await db.execute('CREATE INDEX idx_sets_ex ON workout_sets(exercise_id);');
+        await db.execute('CREATE INDEX idx_sets_ex   ON workout_sets(exercise_id);');
         await db.execute('CREATE INDEX idx_sets_sess ON workout_sets(session_id);');
 
         await db.execute('''
@@ -153,7 +96,7 @@ class DB {
     );
   }
 
-  // --------- EXERCISES ---------
+  // ---------------- EXERCISES ----------------
   Future<int> insertExercise(Map<String, dynamic> data) async {
     final db = await database;
     data['created_at'] ??= DateTime.now().toIso8601String();
@@ -175,7 +118,7 @@ class DB {
     return db.delete('exercises', where: 'id = ?', whereArgs: [id]);
   }
 
-  // --------- WORKOUTS ---------
+  // ---------------- WORKOUTS ----------------
   Future<int> insertWorkout(String name) async {
     final db = await database;
     return db.insert('workouts', {'name': name, 'created_at': DateTime.now().toIso8601String()});
@@ -206,7 +149,7 @@ class DB {
     ''', [workoutId]);
   }
 
-  // --------- SESSIONS & SETS ---------
+  // ---------------- SESSIONS & SETS ----------------
   Future<int> startSession({int? workoutId, String? note}) async {
     final db = await database;
     return db.insert('sessions', {
@@ -237,10 +180,13 @@ class DB {
 
   Future<List<Map<String, dynamic>>> getSetsOfSession(int sessionId) async {
     final db = await database;
-    return db.query('workout_sets', where: 'session_id = ?', whereArgs: [sessionId], orderBy: 'set_index ASC');
+    return db.query('workout_sets',
+        where: 'session_id = ?',
+        whereArgs: [sessionId],
+        orderBy: 'set_index ASC');
   }
 
-  // --------- JOURNAL ---------
+  // ---------------- JOURNAL ----------------
   Future<int> insertJournal(Map<String, dynamic> entry) async {
     final db = await database;
     entry['date'] ??= DateTime.now().toIso8601String();
@@ -254,12 +200,12 @@ class DB {
     if (fromIso != null) { where.add('date >= ?'); args.add(fromIso); }
     if (toIso != null)   { where.add('date <  ?'); args.add(toIso);  }
     return db.query('journal_entries',
-        where: where.isEmpty ? null : where.join(' AND '),
-        whereArgs: args,
-        orderBy: 'date DESC');
+      where: where.isEmpty ? null : where.join(' AND '),
+      whereArgs: args,
+      orderBy: 'date DESC');
   }
 
-  // --------- PROGRESS (ein einfaches Beispiel) ---------
+  // ---------------- PROGRESS / PRs ----------------
   Future<Map<String, dynamic>?> progressForExercise(int exerciseId) async {
     final db = await database;
     final res = await db.rawQuery('''
@@ -271,5 +217,45 @@ class DB {
       WHERE exercise_id = ?
     ''', [exerciseId]);
     return res.isNotEmpty ? res.first : null;
+  }
+
+  Future<Map<String, dynamic>?> bestSetForExercise(int exerciseId) async {
+    final db = await database;
+    final res = await db.rawQuery('''
+      SELECT ws.weight, ws.reps, s.started_at
+      FROM workout_sets ws
+      JOIN sessions s ON s.id = ws.session_id
+      WHERE ws.exercise_id = ?
+      ORDER BY ws.weight DESC, ws.reps DESC
+      LIMIT 1
+    ''', [exerciseId]);
+    return res.isNotEmpty ? res.first : null;
+  }
+
+  Future<List<Map<String, dynamic>>> recentSetsForExercise(int exerciseId, {int limit = 10}) async {
+    final db = await database;
+    return db.rawQuery('''
+      SELECT ws.set_index, ws.reps, ws.weight, s.started_at
+      FROM workout_sets ws
+      JOIN sessions s ON s.id = ws.session_id
+      WHERE ws.exercise_id = ?
+      ORDER BY s.started_at DESC, ws.set_index DESC
+      LIMIT ?
+    ''', [exerciseId, limit]);
+  }
+
+  Future<List<Map<String, dynamic>>> volumePerDayForExercise(int exerciseId, {int limitDays = 30}) async {
+    final db = await database;
+    return db.rawQuery('''
+      SELECT substr(s.started_at, 1, 10) AS day,
+             SUM(ws.weight * ws.reps) AS day_volume,
+             COUNT(*) AS sets_count
+      FROM workout_sets ws
+      JOIN sessions s ON s.id = ws.session_id
+      WHERE ws.exercise_id = ?
+      GROUP BY day
+      ORDER BY day DESC
+      LIMIT ?
+    ''', [exerciseId, limitDays]);
   }
 }
