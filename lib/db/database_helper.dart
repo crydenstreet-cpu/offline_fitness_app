@@ -19,7 +19,7 @@ class DB {
 
     return openDatabase(
       path,
-      version: 4, // ⬅️ Schema v4 (inkl. workout_schedule)
+      version: 4, // v4: workout_schedule + planned_* Felder
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -99,7 +99,6 @@ class DB {
           );
         ''');
 
-        // ⬇️ NEU: Datum → Workout (YYYY-MM-DD)
         await db.execute('''
           CREATE TABLE workout_schedule(
             date TEXT PRIMARY KEY,
@@ -110,7 +109,6 @@ class DB {
         ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        // v2: default_sets / default_reps
         if (oldVersion < 2) {
           final cols = await db.rawQuery('PRAGMA table_info(exercises);');
           if (!cols.any((c) => (c['name'] as String?) == 'default_sets')) {
@@ -120,20 +118,18 @@ class DB {
             await db.execute('ALTER TABLE exercises ADD COLUMN default_reps INTEGER DEFAULT 10;');
           }
         }
-        // v3: planned_* in workout_exercises
         if (oldVersion < 3) {
           final cols = await db.rawQuery('PRAGMA table_info(workout_exercises);');
-          if (!cols.any((c) => (c['name'] as String?) == 'planned_sets'))   {
+          if (!cols.any((c) => (c['name'] as String?) == 'planned_sets')) {
             await db.execute('ALTER TABLE workout_exercises ADD COLUMN planned_sets INTEGER;');
           }
-          if (!cols.any((c) => (c['name'] as String?) == 'planned_reps'))   {
+          if (!cols.any((c) => (c['name'] as String?) == 'planned_reps')) {
             await db.execute('ALTER TABLE workout_exercises ADD COLUMN planned_reps INTEGER;');
           }
           if (!cols.any((c) => (c['name'] as String?) == 'planned_weight')) {
             await db.execute('ALTER TABLE workout_exercises ADD COLUMN planned_weight REAL;');
           }
         }
-        // v4: workout_schedule
         if (oldVersion < 4) {
           await db.execute('''
             CREATE TABLE IF NOT EXISTS workout_schedule(
@@ -148,7 +144,7 @@ class DB {
     );
   }
 
-  // ---------- EXERCISES ----------
+  // -------- EXERCISES --------
   Future<int> insertExercise(Map<String, dynamic> data) async {
     final db = await database;
     data['created_at'] ??= DateTime.now().toIso8601String();
@@ -170,7 +166,7 @@ class DB {
     return db.delete('exercises', where: 'id = ?', whereArgs: [id]);
   }
 
-  // ---------- WORKOUTS ----------
+  // -------- WORKOUTS --------
   Future<int> insertWorkout(String name) async {
     final db = await database;
     return db.insert('workouts', {'name': name, 'created_at': DateTime.now().toIso8601String()});
@@ -229,7 +225,7 @@ class DB {
     return db.update('workout_exercises', data, where: 'id = ?', whereArgs: [linkId]);
   }
 
-  // ---------- SESSIONS & SETS ----------
+  // -------- SESSIONS & SETS --------
   Future<int> startSession({int? workoutId, String? note}) async {
     final db = await database;
     return db.insert('sessions', {
@@ -281,7 +277,7 @@ class DB {
     return (w is num) ? w.toDouble() : double.tryParse('$w');
   }
 
-  // ---------- JOURNAL ----------
+  // -------- JOURNAL --------
   Future<int> insertJournal(Map<String, dynamic> entry) async {
     final db = await database;
     entry['date'] ??= DateTime.now().toIso8601String();
@@ -300,7 +296,7 @@ class DB {
       orderBy: 'date DESC');
   }
 
-  // ---------- PROGRESS ----------
+  // -------- PROGRESS --------
   Future<Map<String, dynamic>?> progressForExercise(int exerciseId) async {
     final db = await database;
     final res = await db.rawQuery('''
@@ -353,8 +349,7 @@ class DB {
     ''', [exerciseId, limitDays]);
   }
 
-  // ---------- SCHEDULE (NEU) ----------
-  /// Einzelnen Tag planen/überschreiben (YYYY-MM-DD)
+  // -------- SCHEDULE --------
   Future<void> upsertSchedule(String ymd, int workoutId, {String? note}) async {
     final db = await database;
     await db.insert('workout_schedule', {
@@ -362,20 +357,18 @@ class DB {
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  /// Plan für mehrere Wochen erzeugen: mapping weekday(1=Mo..7=So) -> workoutId
   Future<void> generateSchedule({
     required DateTime startDate,
     required int weeks,
-    required Map<int, int?> weekdayToWorkoutId,
+    required Map<int, int?> weekdayToWorkoutId, // 1=Mo..7=So -> workoutId?
   }) async {
     final db = await database;
     final batch = db.batch();
-    // Start auf Tagesbeginn normalisieren
     DateTime start = DateTime(startDate.year, startDate.month, startDate.day);
     final totalDays = weeks * 7;
     for (int d = 0; d < totalDays; d++) {
       final day = start.add(Duration(days: d));
-      final weekday = day.weekday; // 1..7 (Mo..So)
+      final weekday = day.weekday; // 1..7
       final workoutId = weekdayToWorkoutId[weekday];
       if (workoutId != null) {
         final ymd = _ymd(day);
@@ -388,7 +381,6 @@ class DB {
     await batch.commit(noResult: true);
   }
 
-  /// Plan in Datumsspanne holen (inkl.)
   Future<List<Map<String, dynamic>>> getScheduleBetween(DateTime from, DateTime to) async {
     final db = await database;
     final fromY = _ymd(from);
@@ -402,18 +394,16 @@ class DB {
     ''', [fromY, toY]);
   }
 
-  /// Nächste N geplante Tage ab heute
   Future<List<Map<String, dynamic>>> upcomingSchedule({int days = 21}) async {
     final today = DateTime.now();
     return getScheduleBetween(today, today.add(Duration(days: days)));
   }
 
-  String _ymd(DateTime d) =>
-      '${d.year.toString().padLeft(4,'0')}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
-
-  /// Zuweisung eines Datums entfernen
   Future<int> deleteSchedule(String ymd) async {
     final db = await database;
     return db.delete('workout_schedule', where: 'date = ?', whereArgs: [ymd]);
   }
+
+  String _ymd(DateTime d) =>
+      '${d.year.toString().padLeft(4,'0')}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
 }
