@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'screens/exercises.dart';
 import 'screens/workouts.dart';
+import 'screens/stats.dart';
+
 
 void main() => runApp(const MyApp());
 
@@ -30,16 +32,15 @@ class _Nav extends StatefulWidget {
   State<_Nav> createState() => _NavState();
 }
 
-class _NavState extends State<_Nav> {
-  int i = 0;
-  final pages = const [
+final pages = const [
   _Stub('🏠 Dashboard'),
-  WorkoutsScreen(),          // <— dieser echte Screen
-  ExercisesScreen(),
-  _Stub('📈 Progress'),
+  _Stub('💪 Workouts'),   // (oder dein echter WorkoutsScreen, wenn schon integriert)
+  _Stub('📋 Übungen'),    // (oder dein ExercisesScreen)
+  StatsScreen(),          // <— NEU: Progress/PRs
   _Stub('📖 Tagebuch'),
   _Stub('⚙️ Einstellungen'),
 ];
+
 
   @override
   Widget build(BuildContext context) {
