@@ -47,21 +47,13 @@ class _SessionScreenState extends State<SessionScreen> {
     final saved = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
         title: const Text('Satz hinzufügen'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: repsCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Wiederholungen'),
-            ),
-            TextField(
-              controller: weightCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Gewicht'),
-            ),
+            TextField(controller: repsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Wiederholungen')),
+            const SizedBox(height: 8),
+            TextField(controller: weightCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Gewicht')),
           ],
         ),
         actions: [
@@ -92,40 +84,34 @@ class _SessionScreenState extends State<SessionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Training: ${widget.workoutName}'),
-        backgroundColor: Colors.black,
-        actions: [IconButton(onPressed: _reload, icon: const Icon(Icons.refresh))],
-      ),
+      appBar: AppBar(title: Text('Training: ${widget.workoutName}')),
       body: _workoutExercises.isEmpty
           ? const Center(child: Text('Keine Übungen im Workout.'))
           : ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
               itemCount: _workoutExercises.length,
               itemBuilder: (context, i) {
                 final e = _workoutExercises[i];
                 final exSets = _setsForExercise(e['id'] as int);
                 return Card(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                   child: Padding(
                     padding: const EdgeInsets.all(12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(e['name'] ?? '', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 6),
-                        if (exSets.isEmpty)
-                          const Text('Noch keine Sätze.'),
+                        const Divider(),
+                        if (exSets.isEmpty) const Text('Noch keine Sätze.'),
                         if (exSets.isNotEmpty)
                           ...exSets.map(
                             (s) => ListTile(
                               dense: true,
                               contentPadding: EdgeInsets.zero,
                               leading: CircleAvatar(child: Text('${s['set_index']}')),
-                              title: Text('${s['reps']} x ${s['weight']}'),
-                              subtitle: s['note'] != null ? Text('${s['note']}') : null,
+                              title: Text('${s['reps']} × ${s['weight']} ${e['unit'] ?? 'kg'}'),
                             ),
                           ),
-                        const SizedBox(height: 8),
                         Align(
                           alignment: Alignment.centerRight,
                           child: OutlinedButton.icon(
