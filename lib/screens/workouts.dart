@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../db/database_helper.dart';
 import 'sessions.dart';
-import 'sessions.dart';
 
 class WorkoutsScreen extends StatefulWidget {
   const WorkoutsScreen({super.key});
@@ -28,13 +27,8 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
         title: const Text('Neues Workout'),
-        content: TextField(
-          controller: c,
-          decoration: const InputDecoration(labelText: 'Workout-Name'),
-          autofocus: true,
-        ),
+        content: TextField(controller: c, decoration: const InputDecoration(labelText: 'Workout-Name')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
           ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Anlegen')),
@@ -50,43 +44,37 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('💪 Workouts'),
-        backgroundColor: Colors.black,
-        actions: [IconButton(onPressed: _reload, icon: const Icon(Icons.refresh))],
-      ),
+      appBar: AppBar(title: const Text('💪 Workouts')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createWorkout,
         icon: const Icon(Icons.add),
-        label: const Text('Workout erstellen'),
+        label: const Text('Workout'),
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _future,
         builder: (context, snap) {
-          if (!snap.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
           final items = snap.data!;
-          if (items.isEmpty) {
-            return const Center(child: Text('Noch keine Workouts – lege dein erstes an!'));
-          }
+          if (items.isEmpty) return const Center(child: Text('Noch keine Workouts – lege dein erstes an!'));
           return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 90),
             itemCount: items.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (context, i) {
               final w = items[i];
-              return ListTile(
-                title: Text(w['name'] ?? ''),
-                subtitle: Text('ID: ${w['id']}'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => WorkoutDetailScreen(workout: w)),
-                  );
-                  _reload();
-                },
+              return Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                child: ListTile(
+                  title: Text(w['name'] ?? ''),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => WorkoutDetailScreen(workout: w)),
+                    );
+                    _reload();
+                  },
+                ),
               );
             },
           );
@@ -99,7 +87,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
 class WorkoutDetailScreen extends StatefulWidget {
   final Map<String, dynamic> workout;
   const WorkoutDetailScreen({super.key, required this.workout});
-
   @override
   State<WorkoutDetailScreen> createState() => _WorkoutDetailScreenState();
 }
@@ -123,7 +110,6 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
   Future<void> _addExerciseToWorkout() async {
     final all = await _futureAllExercises;
     if (all.isEmpty) {
-      // Hinweis: Erst Übung im Übungen-Tab anlegen
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Erstelle zuerst Übungen im Tab „Übungen“.')),
@@ -136,8 +122,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setStateDialog) => AlertDialog(
-          backgroundColor: const Color(0xFF1E1E1E),
-          title: const Text('Übung zum Workout hinzufügen'),
+          title: const Text('Übung hinzufügen'),
           content: DropdownButtonFormField<int>(
             value: selectedId,
             items: all
@@ -147,7 +132,6 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                     ))
                 .toList(),
             onChanged: (v) => setStateDialog(() => selectedId = v),
-            decoration: const InputDecoration(labelText: 'Übung wählen'),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
@@ -195,11 +179,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Workout: ${w['name']}'),
-        backgroundColor: Colors.black,
-        actions: [
-          IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
-          IconButton(onPressed: _startTraining, icon: const Icon(Icons.play_arrow)),
-        ],
+        actions: [IconButton(onPressed: _startTraining, icon: const Icon(Icons.play_arrow))],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _addExerciseToWorkout,
@@ -209,22 +189,20 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _futureExercisesOfWorkout,
         builder: (context, snap) {
-          if (!snap.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
           final items = snap.data!;
-          if (items.isEmpty) {
-            return const Center(child: Text('Noch keine Übungen in diesem Workout.'));
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+          if (items.isEmpty) return const Center(child: Text('Noch keine Übungen in diesem Workout.'));
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 90),
             itemCount: items.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (context, i) {
               final e = items[i];
-              return ListTile(
-                title: Text(e['name'] ?? ''),
-                subtitle: Text([e['muscle_group'], e['unit']].where((x) => (x ?? '').toString().isNotEmpty).join(' • ')),
+              return Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                child: ListTile(
+                  title: Text(e['name'] ?? ''),
+                  subtitle: Text([e['muscle_group'], e['unit']].where((x) => (x ?? '').toString().isNotEmpty).join(' • ')),
+                ),
               );
             },
           );
