@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'ui/design.dart';
 
 import 'screens/calendar_month.dart';
 import 'screens/planner.dart';
@@ -6,7 +7,6 @@ import 'screens/workouts.dart';
 import 'screens/exercises.dart';
 import 'screens/stats.dart';
 import 'screens/journal.dart';
-import 'ui/design.dart'; // dein Theme
 
 void main() => runApp(const MyApp());
 
@@ -33,8 +33,8 @@ class _NavState extends State<_Nav> {
   int _index = 0;
 
   final List<Widget> _pages = const [
-    CalendarMonthScreen(),
-    PlannerScreen(),
+    CalendarMonthScreen(),   // 📆 Monatskalender
+    PlannerScreen(),         // 🗓️ Wochen-Planer
     WorkoutsScreen(),
     ExercisesScreen(),
     StatsScreen(),
@@ -43,12 +43,11 @@ class _NavState extends State<_Nav> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AppScaffold(
       body: SafeArea(child: _pages[_index]),
-      bottomNavigationBar: BottomNavigationBar(
+      bottom: BottomNavigationBar(
         currentIndex: _index,
         onTap: (v) => setState(() => _index = v),
-        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: 'Kalender'),
           BottomNavigationBarItem(icon: Icon(Icons.event_note), label: 'Planer'),
