@@ -19,6 +19,7 @@ class AppColors {
   // von UI-Komponenten referenziert
   static const Color surface2 = surfaceDark2;       // Alias
   static const Color textMuted = Colors.white70;    // für Untertitel
+  static const Color text = Colors.white; // für Komponenten, die AppColors.text nutzen
 }
 
 /// Light Theme (Material 3 + transparente Scaffold-Farbe für Gradient)
