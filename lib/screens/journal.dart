@@ -30,91 +30,69 @@ class _JournalScreenState extends State<JournalScreen> {
     });
   }
 
-  Future<void> _newEntryDialog() async {
+  // ---------- CREATE ----------
+  Future<void> _newEntrySheet() async {
     DateTime date = DateTime.now();
     int mood = 3; // 1..5
     final ctrl = TextEditingController();
 
-    final ok = await showDialog<bool>(
+    final saved = await showModalBottomSheet<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Neuer Eintrag'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _DateRow(
-                label: 'Datum',
-                date: date,
-                onPick: (d) => date = d,
-              ),
-              const SizedBox(height: 8),
-              _MoodRow(
-                value: mood,
-                onChanged: (v) => mood = v,
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: ctrl,
-                minLines: 3,
-                maxLines: 6,
-                decoration: const InputDecoration(
-                  labelText: 'Notiz',
-                  hintText: 'Wie war dein Training / dein Tag?',
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Speichern')),
-        ],
-      ),
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+      builder: (ctx) {
+        return _JournalEditor(
+          title: 'Neuer Eintrag',
+          initialDate: date,
+          initialMood: mood,
+          initialText: '',
+          onChanged: (d, m, t) {
+            // wird durch StatefulBuilder dort verwaltet, hier nur am Ende interessant
+            date = d; mood = m; ctrl.text = t;
+          },
+        );
+      },
     );
 
-    if (ok == true) {
+    if (saved == true) {
       await DB.instance.insertJournal(date, ctrl.text.trim(), mood: mood);
       await _load();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Eintrag gespeichert.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Eintrag gespeichert.')));
     }
   }
 
-  Future<void> _editEntryDialog(Map<String, dynamic> row) async {
+  // ---------- EDIT ----------
+  Future<void> _editEntrySheet(Map<String, dynamic> row) async {
     DateTime date = DateTime.tryParse(row['date'] as String? ?? '') ?? DateTime.now();
-    int mood = (row['mood'] as int?) ?? 3;
+    int mood = (row['mood'] as int?)?.clamp(1, 5) ?? 3;
     final ctrl = TextEditingController(text: row['note'] as String? ?? '');
 
-    final ok = await showDialog<bool>(
+    final saved = await showModalBottomSheet<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Eintrag bearbeiten'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _DateRow(label: 'Datum', date: date, onPick: (d) => date = d),
-              const SizedBox(height: 8),
-              _MoodRow(value: mood, onChanged: (v) => mood = v),
-              const SizedBox(height: 8),
-              TextField(
-                controller: ctrl,
-                minLines: 3,
-                maxLines: 6,
-                decoration: const InputDecoration(labelText: 'Notiz'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Speichern')),
-        ],
-      ),
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+      builder: (ctx) {
+        return _JournalEditor(
+          title: 'Eintrag bearbeiten',
+          initialDate: date,
+          initialMood: mood,
+          initialText: ctrl.text,
+          onChanged: (d, m, t) {
+            date = d; mood = m; ctrl.text = t;
+          },
+        );
+      },
     );
 
-    if (ok == true) {
+    if (saved == true) {
       await DB.instance.updateJournal(
         id: row['id'] as int,
         date: date,
@@ -123,7 +101,8 @@ class _JournalScreenState extends State<JournalScreen> {
       );
       await _load();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Eintrag aktualisiert.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Eintrag aktualisiert.')));
     }
   }
 
@@ -143,7 +122,8 @@ class _JournalScreenState extends State<JournalScreen> {
       await DB.instance.deleteJournal(id);
       await _load();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Eintrag gelöscht.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Eintrag gelöscht.')));
     }
   }
 
@@ -162,123 +142,208 @@ class _JournalScreenState extends State<JournalScreen> {
                     final row = _entries[i];
                     final id = row['id'] as int;
                     final note = (row['note'] as String?) ?? '';
-                    final mood = (row['mood'] as int?) ?? 3;
+                    final mood = (row['mood'] as int?)?.clamp(1, 5) ?? 3;
                     final date = DateTime.tryParse(row['date'] as String? ?? '') ?? DateTime.now();
                     return Dismissible(
                       key: ValueKey('journal_$id'),
-                      background: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        alignment: Alignment.centerLeft,
-                        padding: const EdgeInsets.only(left: 20),
-                        child: const Icon(Icons.delete_outline),
-                      ),
-                      secondaryBackground: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 20),
-                        child: const Icon(Icons.delete_outline),
-                      ),
+                      background: _swipeBg(left: true),
+                      secondaryBackground: _swipeBg(left: false),
                       confirmDismiss: (_) async {
                         await _confirmDelete(id);
-                        return false; // wir löschen manuell nach Bestätigung
+                        return false; // wir löschen manuell
                       },
                       child: Card(
                         child: ListTile(
-                          title: Text(_df.format(date), style: const TextStyle(fontWeight: FontWeight.w700)),
+                          title: Text(_df.format(date),
+                              style: const TextStyle(fontWeight: FontWeight.w700)),
                           subtitle: Text(note.isEmpty ? '—' : note),
                           leading: _MoodDot(mood: mood),
                           trailing: PopupMenuButton<String>(
                             onSelected: (v) {
-                              if (v == 'edit') _editEntryDialog(row);
+                              if (v == 'edit') _editEntrySheet(row);
                               if (v == 'delete') _confirmDelete(id);
                             },
                             itemBuilder: (ctx) => const [
-                              PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Bearbeiten'))),
-                              PopupMenuItem(value: 'delete', child: ListTile(leading: Icon(Icons.delete_outline), title: Text('Löschen'))),
+                              PopupMenuItem(
+                                  value: 'edit',
+                                  child: ListTile(
+                                      leading: Icon(Icons.edit_outlined),
+                                      title: Text('Bearbeiten'))),
+                              PopupMenuItem(
+                                  value: 'delete',
+                                  child: ListTile(
+                                      leading: Icon(Icons.delete_outline),
+                                      title: Text('Löschen'))),
                             ],
                           ),
-                          onTap: () => _editEntryDialog(row),
+                          onTap: () => _editEntrySheet(row),
                         ),
                       ),
                     );
                   },
                 ),
       fab: FloatingActionButton.extended(
-        onPressed: _newEntryDialog,
+        onPressed: _newEntrySheet,
         icon: const Icon(Icons.add),
         label: const Text('Eintrag'),
       ),
     );
   }
-}
 
-/// Datumsauswahl-Zeile
-class _DateRow extends StatelessWidget {
-  final String label;
-  final DateTime date;
-  final ValueChanged<DateTime> onPick;
-  const _DateRow({required this.label, required this.date, required this.onPick});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: Text(label)),
-        OutlinedButton.icon(
-          onPressed: () async {
-            final picked = await showDatePicker(
-              context: context,
-              initialDate: date,
-              firstDate: DateTime.now().subtract(const Duration(days: 3650)),
-              lastDate: DateTime.now().add(const Duration(days: 3650)),
-              builder: (ctx, child) => Theme(
-                data: Theme.of(ctx).copyWith(
-                  colorScheme: Theme.of(ctx).colorScheme,
-                  dialogBackgroundColor: Theme.of(ctx).colorScheme.surface,
-                ),
-                child: child!,
-              ),
-            );
-            if (picked != null) onPick(DateTime(picked.year, picked.month, picked.day));
-          },
-          icon: const Icon(Icons.calendar_today),
-          label: Text(DateFormat('dd.MM.yyyy').format(date)),
-        ),
-      ],
+  Widget _swipeBg({required bool left}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      alignment: left ? Alignment.centerLeft : Alignment.centerRight,
+      padding: EdgeInsets.only(left: left ? 20 : 0, right: left ? 0 : 20),
+      child: const Icon(Icons.delete_outline),
     );
   }
 }
 
-/// Stimmungsauswahl (1..5)
-class _MoodRow extends StatelessWidget {
-  final int value;
-  final ValueChanged<int> onChanged;
-  const _MoodRow({required this.value, required this.onChanged});
+/// ---------- Editor BottomSheet (stateful im Inneren) ----------
+class _JournalEditor extends StatelessWidget {
+  final String title;
+  final DateTime initialDate;
+  final int initialMood; // 1..5
+  final String initialText;
+  final void Function(DateTime date, int mood, String text) onChanged;
+
+  const _JournalEditor({
+    required this.title,
+    required this.initialDate,
+    required this.initialMood,
+    required this.initialText,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final chips = List<Widget>.generate(5, (i) {
-      final v = i + 1;
-      final selected = v == value;
-      return ChoiceChip(
-        label: Text('$v'),
-        selected: selected,
-        onSelected: (_) => onChanged(v),
-      );
-    });
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Stimmung'),
-        const SizedBox(height: 6),
-        Wrap(spacing: 8, children: chips),
-      ],
+    DateTime date = initialDate;
+    int mood = initialMood;
+    final ctrl = TextEditingController(text: initialText);
+
+    return StatefulBuilder(
+      builder: (ctx, setSheetState) {
+        Future<void> pickDate() async {
+          final picked = await showDatePicker(
+            context: ctx,
+            initialDate: date,
+            firstDate: DateTime.now().subtract(const Duration(days: 3650)),
+            lastDate: DateTime.now().add(const Duration(days: 3650)),
+            builder: (c, child) => Theme(
+              data: Theme.of(c).copyWith(
+                colorScheme: Theme.of(c).colorScheme,
+                dialogBackgroundColor: Theme.of(c).colorScheme.surface,
+              ),
+              child: child!,
+            ),
+          );
+          if (picked != null) {
+            setSheetState(() => date = DateTime(picked.year, picked.month, picked.day));
+          }
+        }
+
+        void changeMood(int v) {
+          setSheetState(() => mood = v.clamp(1, 5));
+        }
+
+        onChanged(date, mood, ctrl.text);
+
+        final bottomSafe = MediaQuery.of(ctx).viewPadding.bottom;
+        final bottomKeyboard = MediaQuery.of(ctx).viewInsets.bottom;
+
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16, right: 16, top: 12,
+            bottom: 16 + bottomSafe + bottomKeyboard,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    height: 4, width: 40, margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+                  ),
+                ),
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                const SizedBox(height: 10),
+
+                // Datum
+                Row(
+                  children: [
+                    const Icon(Icons.calendar_today, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(DateFormat('EEE, dd.MM.yyyy', 'de_DE').format(date))),
+                    OutlinedButton(
+                      onPressed: pickDate,
+                      child: const Text('Datum ändern'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Stimmung (1..5)
+                const Text('Stimmung'),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  children: List.generate(5, (i) {
+                    final v = i + 1;
+                    final selected = v == mood;
+                    return ChoiceChip(
+                      label: Text('$v'),
+                      selected: selected,
+                      onSelected: (_) => changeMood(v),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 12),
+
+                // Notiz
+                TextField(
+                  controller: ctrl,
+                  minLines: 3,
+                  maxLines: 8,
+                  decoration: const InputDecoration(
+                    labelText: 'Notiz',
+                    hintText: 'Wie war dein Training / dein Tag?',
+                  ),
+                  onChanged: (_) => onChanged(date, mood, ctrl.text),
+                ),
+
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Abbrechen'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          onChanged(date, mood, ctrl.text);
+                          Navigator.pop(ctx, true);
+                        },
+                        child: const Text('Speichern'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -290,7 +355,8 @@ class _MoodDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = [
-      Colors.redAccent, Colors.deepOrange, Colors.amber, Colors.lightGreen, Colors.tealAccent,
+      Colors.redAccent, Colors.deepOrange, Colors.amber,
+      Colors.lightGreen, Colors.tealAccent,
     ];
     final c = colors[(mood.clamp(1, 5)) - 1];
     return CircleAvatar(radius: 10, backgroundColor: c);
