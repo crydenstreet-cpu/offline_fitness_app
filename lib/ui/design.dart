@@ -1,113 +1,90 @@
 import 'package:flutter/material.dart';
 
-/// AMOLED Black + Electric Purple Theme
 class AppColors {
-  static const black   = Color(0xFF000000);
-  static const surface = Color(0xFF0A0A0A);
-  static const surface2= Color(0xFF121212);
-  static const purple  = Color(0xFF7C4DFF);
-  static const mint    = Color(0xFF00FFC6);
-  static const text    = Colors.white;
-  static const textMuted = Color(0xCCFFFFFF);
-
-  /// Alias, damit Komponenten `AppColors.primary` nutzen können:
-  static const primary = purple;
+  static const bg        = Color(0xFF0B0D0E);
+  static const surface   = Color(0xFF121416);
+  static const surface2  = Color(0xFF1A1E22);
+  static const primary   = Color(0xFF00E0C6);
+  static const secondary = Color(0xFF7AE582);
+  static const text      = Colors.white;
 }
 
 ThemeData buildAppTheme() {
-  final base = ThemeData.dark(useMaterial3: true);
+  final cs = ColorScheme.fromSeed(
+    seedColor: AppColors.primary,
+    brightness: Brightness.dark,
+    background: AppColors.bg,
+    surface: AppColors.surface,
+    primary: AppColors.primary,
+    secondary: AppColors.secondary,
+  );
 
-  return base.copyWith(
-    scaffoldBackgroundColor: AppColors.black,
-    cardColor: AppColors.surface,
-    splashFactory: InkSparkle.splashFactory,
-    colorScheme: const ColorScheme.dark(
-      primary: AppColors.purple,
-      secondary: AppColors.mint,
-      surface: AppColors.surface,
-      background: AppColors.black,
-      onPrimary: Colors.white,
-      onSecondary: Colors.black,
-      onSurface: Colors.white,
-      onBackground: Colors.white,
-    ),
-    textTheme: base.textTheme.copyWith(
-      headlineSmall: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.text),
-      titleMedium:  const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.text),
-      bodyMedium:   const TextStyle(fontSize: 14, color: AppColors.textMuted),
-    ),
+  return ThemeData(
+    brightness: Brightness.dark,
+    useMaterial3: true,
+    scaffoldBackgroundColor: AppColors.bg,
+    colorScheme: cs,
     appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.black,
-      surfaceTintColor: Colors.transparent,
+      backgroundColor: AppColors.bg,
       elevation: 0,
-      centerTitle: false,
-      titleTextStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.text),
+      titleTextStyle: TextStyle(color: AppColors.text, fontWeight: FontWeight.w700, fontSize: 18),
+    ),
+    cardTheme: const CardTheme(
+      color: AppColors.surface,
+      elevation: 0,
+      margin: EdgeInsets.symmetric(vertical: 6, horizontal: 0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(14))),
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: AppColors.black,
-      selectedItemColor: AppColors.purple,
-      unselectedItemColor: AppColors.textMuted,
+      backgroundColor: AppColors.bg,
+      selectedItemColor: AppColors.primary,
+      unselectedItemColor: Colors.white70,
       type: BottomNavigationBarType.fixed,
-      elevation: 0,
-    ),
-    floatingActionButtonTheme: const FloatingActionButtonThemeData(
-      backgroundColor: AppColors.purple,
-      foregroundColor: Colors.white,
-      elevation: 4,
-      shape: StadiumBorder(),
-    ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.purple,
-        foregroundColor: Colors.white,
-        minimumSize: const Size.fromHeight(52),
-        textStyle: const TextStyle(fontWeight: FontWeight.w800),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-    ),
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.mint,
-        side: const BorderSide(color: AppColors.mint, width: 1.2),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        textStyle: const TextStyle(fontWeight: FontWeight.w700),
-      ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: AppColors.surface2,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      labelStyle: const TextStyle(color: Colors.white70),
+      hintStyle: const TextStyle(color: Colors.white54),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide.none,
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.white24),
       ),
-      labelStyle: const TextStyle(color: AppColors.textMuted),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.white24),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.4),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     ),
-    dividerTheme: const DividerThemeData(color: Colors.white10, thickness: 1),
-    cardTheme: CardThemeData( // <-- CardThemeData statt CardTheme
-      color: AppColors.surface,
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    dropdownMenuTheme: const DropdownMenuThemeData(
+      menuStyle: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(AppColors.surface2),
+        shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12)))),
+      ),
     ),
-    iconTheme: const IconThemeData(color: AppColors.text),
+    dialogBackgroundColor: AppColors.surface,
+    snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
   );
 }
 
+/// Einheitliches Scaffold (sorgt für identische Hintergründe)
 class AppScaffold extends StatelessWidget {
   final PreferredSizeWidget? appBar;
   final Widget body;
   final Widget? bottom;
-  final Widget? fab;
-  const AppScaffold({super.key, this.appBar, required this.body, this.bottom, this.fab});
+  const AppScaffold({super.key, this.appBar, required this.body, this.bottom});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: appBar,
-      floatingActionButton: fab,
-      bottomNavigationBar: bottom,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: body,
+      bottomNavigationBar: bottom,
     );
   }
 }
