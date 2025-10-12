@@ -142,7 +142,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     if (_error != null) {
       return AppScaffold(
         appBar: AppBar(title: const Text('📆 Kalender')),
-        body: Center(child: Text(_error!, textAlign: TextAlign.center)),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -159,9 +159,9 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
         child: Column(
           children: [
-            const _WeekdayHeader(),
+            _WeekdayHeader(),
             const SizedBox(height: 6),
-            Expanded(child: _MonthGrid(
+            Expanded(child: MonthGrid(
               month: _month,
               scheduleByYmd: _scheduleByYmd,
               onEditDay: _editDay,
