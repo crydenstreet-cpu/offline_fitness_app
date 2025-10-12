@@ -95,7 +95,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
     if (_error != null) {
       return AppScaffold(
         appBar: AppBar(title: const Text('🗓️ Wochen-Planer')),
-        body: Center(child: Text(_error!, textAlign: TextAlign.center)),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
