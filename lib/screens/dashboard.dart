@@ -1,8 +1,7 @@
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:offline_fitness_app/db/database_helper.dart';
-import 'package:offline_fitness_app/ui/design.dart';
+import '../db/database_helper.dart';
+import '../ui/design.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -11,185 +10,116 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  Map<String, dynamic>? _nextPlan;
-  Map<String, dynamic>? _lastSession;
-  double? _avgMood;
-  List<Map<String, dynamic>> _volDays = [];
-  bool _loading = true;
+  late Future<Map<String, dynamic>?> _nextPlannedFuture;
+  late Future<Map<String, dynamic>?> _lastSessionFuture;
+  late Future<double?> _avgMoodFuture;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _reload();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    final db = DB.instance;
-    final nextPlan = await db.nextPlannedWorkout();
-    final last = await db.lastSessionSummary();
-    final mood = await db.averageMoodLast7Days();
-    final vols = await db.volumeByDayAll(days: 14);
-    if (!mounted) return;
-    setState(() {
-      _nextPlan = nextPlan;
-      _lastSession = last;
-      _avgMood = mood;
-      _volDays = vols;
-      _loading = false;
-    });
+  void _reload() {
+    _nextPlannedFuture = DB.instance.nextPlannedWorkout();
+    _lastSessionFuture = DB.instance.lastSessionSummary();
+    _avgMoodFuture = DB.instance.averageMoodLast7Days();
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return AppScaffold(
-        appBar: AppBar(title: const Text('🏁 Dashboard')),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    // Volumen-Vergleich: letzte 7 Tage vs. vorherige 7 Tage
-    final today = DateTime.now();
-    final startThis = DateTime(today.year, today.month, today.day).subtract(const Duration(days: 6));
-    final startPrev = startThis.subtract(const Duration(days: 7));
-    final endPrev = startThis.subtract(const Duration(days: 1));
-
-    int sumBetween(DateTime a, DateTime b) {
-      final fmt = DateFormat('yyyy-MM-dd');
-      final aa = fmt.format(a);
-      final bb = fmt.format(b);
-      int s = 0;
-      for (final r in _volDays) {
-        final d = (r['day'] as String?) ?? '';
-        if (d.compareTo(aa) >= 0 && d.compareTo(bb) <= 0) {
-          final v = r['volume'];
-          final iv = (v is num) ? v.toInt() : int.tryParse('$v') ?? 0;
-          s += iv;
-        }
-      }
-      return s;
-    }
-
-    final volThis = sumBetween(startThis, today);
-    final volPrev = sumBetween(startPrev, endPrev);
-    final pct = (volPrev == 0) ? (volThis > 0 ? 100.0 : 0.0) : ((volThis - volPrev) / volPrev * 100.0);
-
     return AppScaffold(
-      appBar: AppBar(title: const Text('🏁 Dashboard')),
+      appBar: AppBar(title: const Text('🏁 Home')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         children: [
           // Nächster Termin
-          _CardTile(
-            icon: Icons.event_available,
-            title: 'Nächster Termin',
-            subtitle: _nextPlan == null
-                ? 'Kein Termin geplant'
-                : '${_nextPlan!['workout_name']} – ${_nextPlan!['date']}',
+          FutureBuilder<Map<String, dynamic>?>(
+            future: _nextPlannedFuture,
+            builder: (context, snap) {
+              final row = snap.data;
+              final title = row?['workout_name'] ?? '—';
+              final dateStr = row?['date'] as String?;
+              String sub = 'Kein Termin geplant';
+              if (dateStr != null && dateStr.length >= 10) {
+                final parts = dateStr.split('-');
+                final d = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+                sub = DateFormat('EEE, dd.MM.yyyy', 'de_DE').format(d);
+              }
+              return AppCard(
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.event_available),
+                  title: const Text('Nächster Termin', style: TextStyle(fontWeight: FontWeight.w800)),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('$title\n$sub'),
+                  ),
+                ),
+              );
+            },
           ),
+
+          const SizedBox(height: 10),
 
           // Letzte Session
-          _CardTile(
-            icon: Icons.history,
-            title: 'Letzte Session',
-            subtitle: _lastSession == null
-                ? 'Noch keine Session'
-                : '${DateFormat('dd.MM.yyyy – HH:mm').format(DateTime.parse(_lastSession!['started_at']))}\n'
-                  'Sätze: ${_lastSession!['sets_count']}  •  Volumen: ${(_lastSession!['total_volume'] as num?)?.toInt() ?? 0}',
-          ),
-
-          // Stimmung der Woche
-          _CardTile(
-            icon: Icons.mood,
-            title: 'Stimmung (Ø letzte 7 Tage)',
-            subtitle: (_avgMood == null) ? '—' : _avgMood!.toStringAsFixed(1) + ' / 5',
-          ),
-
-          const SizedBox(height: 8),
-
-          // Volumenvergleich + Sparkline
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Volumen-Vergleich', style: TextStyle(fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 4),
-                  Text('Diese 7 Tage: $volThis   •   Vorherige 7 Tage: $volPrev'),
-                  const SizedBox(height: 4),
-                  Text(
-                    (pct >= 0 ? '▲' : '▼') + ' ' + pct.toStringAsFixed(1) + ' %',
-                    style: TextStyle(
-                      color: pct >= 0 ? Colors.greenAccent : Colors.redAccent,
-                      fontWeight: FontWeight.w700,
-                    ),
+          FutureBuilder<Map<String, dynamic>?>(
+            future: _lastSessionFuture,
+            builder: (context, snap) {
+              final row = snap.data;
+              String when = '—';
+              int sets = 0;
+              double volume = 0;
+              if (row != null) {
+                final iso = row['started_at'] as String?;
+                if (iso != null) when = DateFormat('dd.MM.yyyy HH:mm').format(DateTime.parse(iso));
+                sets = (row['sets_count'] as num?)?.toInt() ?? 0;
+                volume = (row['total_volume'] as num?)?.toDouble() ?? 0.0;
+              }
+              return AppCard(
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.fitness_center),
+                  title: const Text('Letzte Session', style: TextStyle(fontWeight: FontWeight.w800)),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('Zeit: $when\nSätze: $sets   •   Volumen: ${_short(volume)}'),
                   ),
-                  const SizedBox(height: 12),
-                  SizedBox(height: 140, child: _VolumeSparkline(data: _volDays)),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 10),
+
+          // Stimmung (7 Tage)
+          FutureBuilder<double?>(
+            future: _avgMoodFuture,
+            builder: (context, snap) {
+              final v = snap.data;
+              final label = v == null ? '—' : v.toStringAsFixed(1);
+              return AppCard(
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.emoji_emotions),
+                  title: const Text('Stimmung (Ø 7 Tage)', style: TextStyle(fontWeight: FontWeight.w800)),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(label),
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
-}
 
-class _CardTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  const _CardTile({required this.icon, required this.title, required this.subtitle});
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(.15),
-          child: Icon(icon, color: Theme.of(context).colorScheme.primary),
-        ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-        subtitle: Text(subtitle),
-      ),
-    );
-  }
-}
-
-class _VolumeSparkline extends StatelessWidget {
-  final List<Map<String, dynamic>> data;
-  const _VolumeSparkline({required this.data});
-  @override
-  Widget build(BuildContext context) {
-    if (data.isEmpty) {
-      return const Center(child: Text('Keine Daten'));
-    }
-    final xs = <FlSpot>[];
-    int i = 0;
-    double maxV = 0;
-    for (final r in data) {
-      final v = r['volume'];
-      final iv = (v is num) ? v.toDouble() : double.tryParse('$v') ?? 0.0;
-      xs.add(FlSpot(i.toDouble(), iv));
-      if (iv > maxV) maxV = iv;
-      i++;
-    }
-    return LineChart(LineChartData(
-      gridData: const FlGridData(show: false),
-      titlesData: const FlTitlesData(show: false),
-      borderData: FlBorderData(show: false),
-      lineBarsData: [
-        LineChartBarData(
-          isCurved: true,
-          spots: xs,
-          dotData: const FlDotData(show: false),
-          belowBarData: BarAreaData(show: true, applyCutOffY: true),
-          barWidth: 3,
-        ),
-      ],
-      minY: 0,
-    ));
+  String _short(double n) {
+    if (n >= 1e6) return '${(n / 1e6).toStringAsFixed(1)}M';
+    if (n >= 1e3) return '${(n / 1e3).toStringAsFixed(1)}k';
+    return n.toStringAsFixed(0);
   }
 }
