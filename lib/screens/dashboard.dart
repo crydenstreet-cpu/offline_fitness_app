@@ -34,14 +34,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         children: [
-          // Nächster Termin
+          // Nächstes Training
           FutureBuilder<Map<String, dynamic>?>(
             future: _nextPlannedFuture,
             builder: (context, snap) {
               final row = snap.data;
               final title = row?['workout_name'] ?? '—';
               final dateStr = row?['date'] as String?;
-              String sub = 'Kein Termin geplant';
+              String sub = 'Kein Training geplant';
               if (dateStr != null && dateStr.length >= 10) {
                 final parts = dateStr.split('-');
                 final d = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
@@ -50,7 +50,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               return _cardTile(
                 context,
                 leading: const Icon(Icons.event_available),
-                title: 'Nächster Termin',
+                title: 'Nächstes Training',
                 subtitle: '$title\n$sub',
               );
             },
@@ -102,7 +102,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Kleiner Helfer für hübsche Karten
+  // Karten-Helfer
   Widget _cardTile(
     BuildContext context, {
     required Widget leading,
