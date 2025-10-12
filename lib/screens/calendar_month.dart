@@ -15,7 +15,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
   List<Map<String, dynamic>> _workouts = [];
   Map<String, Map<String, dynamic>> _scheduleByYmd = {};
   bool _loading = true;
-  String? _error; // 👈 NEU
+  String? _error;
 
   @override
   void initState() {
@@ -50,7 +50,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
 
   void _prevMonth() { setState(() => _month = DateTime(_month.year, _month.month - 1, 1)); _load(); }
   void _nextMonth() { setState(() => _month = DateTime(_month.year, _month.month + 1, 1)); _load(); }
-  void _goToday() { final n = DateTime.now(); setState(() => _month = DateTime(n.year, n.month, 1)); _load(); }
+  void _goToday()   { final n = DateTime.now(); setState(() => _month = DateTime(n.year, n.month, 1)); _load(); }
 
   Future<void> _editDay(DateTime day) async {
     final ymd = _ymd(day);
@@ -60,17 +60,30 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
       builder: (ctx) {
         return Padding(
-          padding: EdgeInsets.only(left:16, right:16, top:12, bottom:16 + MediaQuery.of(ctx).viewInsets.bottom),
+          padding: EdgeInsets.only(
+            left: 16, right: 16, top: 12,
+            bottom: 16 + MediaQuery.of(ctx).viewInsets.bottom,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(height: 4, width: 40, margin: const EdgeInsets.only(bottom: 8),
-                decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
-              Text(DateFormat('EEEE, dd.MM.yyyy', 'de_DE').format(day), style: const TextStyle(fontWeight: FontWeight.w800)),
+              Container(
+                height: 4, width: 40, margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Text(
+                DateFormat('EEEE, dd.MM.yyyy', 'de_DE').format(day),
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
               const SizedBox(height: 12),
+
               DropdownButtonFormField<int?>(
                 value: selected,
                 isExpanded: true,
@@ -78,24 +91,43 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
                 decoration: const InputDecoration(labelText: 'Workout zuweisen'),
                 items: <DropdownMenuItem<int?>>[
                   const DropdownMenuItem<int?>(value: null, child: Text('— kein —')),
-                  ..._workouts.map((w) => DropdownMenuItem<int?>(value: w['id'] as int, child: Text(w['name'] ?? '')))
+                  ..._workouts.map((w) => DropdownMenuItem<int?>(
+                    value: w['id'] as int,
+                    child: Text(w['name'] ?? ''),
+                  ))
                 ],
                 onChanged: (v) => selected = v,
               ),
+
               const SizedBox(height: 14),
               Row(
                 children: [
-                  Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen'))),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Abbrechen'),
+                    ),
+                  ),
                   const SizedBox(width: 10),
-                  Expanded(child: ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Speichern'))),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Speichern'),
+                    ),
+                  ),
                 ],
               ),
+
               const SizedBox(height: 6),
               if (_scheduleByYmd[ymd] != null)
                 SizedBox(
                   width: double.infinity,
                   child: TextButton.icon(
-                    onPressed: () async { await DB.instance.deleteSchedule(ymd); if (!mounted) return; Navigator.pop(ctx, true); },
+                    onPressed: () async {
+                      await DB.instance.deleteSchedule(ymd);
+                      if (!mounted) return;
+                      Navigator.pop(ctx, true);
+                    },
                     icon: const Icon(Icons.delete_outline),
                     label: const Text('Zuweisung entfernen'),
                   ),
@@ -125,7 +157,11 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     final sessionId = await DB.instance.startSession(workoutId: workoutId);
     if (!mounted) return;
     Navigator.push(context, MaterialPageRoute(
-      builder: (_) => SessionScreen(sessionId: sessionId, workoutId: workoutId, workoutName: name),
+      builder: (_) => SessionScreen(
+        sessionId: sessionId,
+        workoutId: workoutId,
+        workoutName: name,
+      ),
     ));
   }
 
@@ -134,15 +170,16 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     final monthTitle = DateFormat('LLLL yyyy', 'de_DE').format(_month);
 
     if (_loading) {
-      return const AppScaffold(
-        appBar: AppBar(title: Text('📆 Kalender')),
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (_error != null) {
       return AppScaffold(
         appBar: AppBar(title: const Text('📆 Kalender')),
         body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_error != null) {
+      return AppScaffold(
+        appBar: AppBar(title: const Text('📆 Kalender')),
+        body: Center(child: Text(_error!, textAlign: TextAlign.center)),
       );
     }
 
@@ -159,7 +196,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
         child: Column(
           children: [
-            _WeekdayHeader(),
+            const _WeekdayHeader(),
             const SizedBox(height: 6),
             Expanded(child: MonthGrid(
               month: _month,
@@ -177,4 +214,120 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
       '${d.year.toString().padLeft(4,'0')}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
 }
 
-// ... (Rest der Datei mit _WeekdayHeader und _MonthGrid unverändert) ...
+class _WeekdayHeader extends StatelessWidget {
+  const _WeekdayHeader({super.key});
+  @override
+  Widget build(BuildContext context) {
+    const labels = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+    return Row(
+      children: labels.map((l) => Expanded(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Center(child: Text(l, style: const TextStyle(fontWeight: FontWeight.w700))),
+        ),
+      )).toList(),
+    );
+  }
+}
+
+class MonthGrid extends StatelessWidget {
+  final DateTime month; // 1st of month
+  final Map<String, Map<String, dynamic>> scheduleByYmd;
+  final Future<void> Function(DateTime day) onEditDay;
+  final Future<void> Function(DateTime day) onStartDay;
+
+  const MonthGrid({
+    super.key,
+    required this.month,
+    required this.scheduleByYmd,
+    required this.onEditDay,
+    required this.onStartDay,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final first = month;
+    final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
+    final leading = first.weekday - 1; // 0..6 (Mo=1)
+    final totalCells = ((leading + daysInMonth) / 7).ceil() * 7;
+
+    final today = DateTime.now();
+    final isTodayMonth = (today.year == month.year && today.month == month.month);
+
+    return GridView.builder(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 7, crossAxisSpacing: 6, mainAxisSpacing: 6,
+      ),
+      itemCount: totalCells,
+      itemBuilder: (context, idx) {
+        final dayNum = idx - leading + 1;
+        if (dayNum < 1 || dayNum > daysInMonth) return const SizedBox.shrink();
+
+        final day = DateTime(month.year, month.month, dayNum);
+        final ymd = _ymd(day);
+        final planned = scheduleByYmd[ymd];
+        final name = planned?['workout_name'] as String?;
+        final hasPlan = planned != null;
+
+        final isToday = isTodayMonth && (day.day == today.day);
+        final border = isToday
+          ? Border.all(color: Theme.of(context).colorScheme.primary, width: 1.2)
+          : Border.all(color: Colors.white12);
+
+        return InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => onEditDay(day),
+          onLongPress: hasPlan ? () => onStartDay(day) : null,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: border,
+            ),
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$dayNum',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: hasPlan ? Theme.of(context).colorScheme.primary : null,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                if (hasPlan)
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: Text(
+                        name ?? 'Workout',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  )
+                else
+                  const Expanded(
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: Text('—', style: TextStyle(fontSize: 12, color: Colors.white38)),
+                    ),
+                  ),
+                if (hasPlan)
+                  Align(
+                    alignment: Alignment.bottomRight,
+                    child: Icon(Icons.play_arrow, size: 18, color: Theme.of(context).colorScheme.secondary),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _ymd(DateTime d) =>
+      '${d.year.toString().padLeft(4,'0')}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
+}
