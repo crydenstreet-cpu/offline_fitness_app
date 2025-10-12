@@ -117,12 +117,14 @@ class GradientBackground extends StatelessWidget {
   }
 }
 
-/// Scaffold, das automatisch den Gradient-Hintergrund nutzt
+// ui/design.dart (Ausschnitt)
+
 class AppScaffold extends StatelessWidget {
   final PreferredSizeWidget? appBar;
   final Widget body;
   final Widget? bottom;
-  final Widget? fab;
+  final FloatingActionButton? fab;
+  final Widget? drawer; // ⬅️ NEU
 
   const AppScaffold({
     super.key,
@@ -130,18 +132,19 @@ class AppScaffold extends StatelessWidget {
     required this.body,
     this.bottom,
     this.fab,
+    this.drawer, // ⬅️ NEU
   });
 
   @override
   Widget build(BuildContext context) {
-    return GradientBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: appBar,
-        body: body,
-        bottomNavigationBar: bottom,
-        floatingActionButton: fab,
-      ),
+    return Scaffold(
+      appBar: appBar,
+      drawer: drawer, // ⬅️ NEU
+      body: GradientBackground(child: SafeArea(child: body)),
+      bottomNavigationBar: bottom,
+      floatingActionButton: fab,
     );
   }
+}
+
 }
