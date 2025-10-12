@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart'; // 👈 NEU
 import 'ui/design.dart';
 
 import 'screens/calendar_month.dart';
@@ -8,7 +9,12 @@ import 'screens/exercises.dart';
 import 'screens/stats.dart';
 import 'screens/journal.dart';
 
-void main() => runApp(const MyApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // 👇 Ohne das crasht DateFormat('…', 'de_DE') häufig in Release.
+  await initializeDateFormatting('de_DE');
+  runApp(const MyApp());
+}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -22,6 +28,7 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+
 
 class _Nav extends StatefulWidget {
   const _Nav({super.key});
