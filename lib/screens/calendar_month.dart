@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:offline_fitness_app/db/database_helper.dart';
 import 'package:offline_fitness_app/screens/sessions.dart';
-import 'package:offline_fitness_app/ui/design.dart'; // <- AppScaffold
+import 'package:offline_fitness_app/ui/design.dart';
 
 class CalendarMonthScreen extends StatefulWidget {
   const CalendarMonthScreen({super.key});
@@ -43,7 +43,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
 
   void _prevMonth() { setState(() => _month = DateTime(_month.year, _month.month - 1, 1)); _load(); }
   void _nextMonth() { setState(() => _month = DateTime(_month.year, _month.month + 1, 1)); _load(); }
-  void _goToday()   { final now = DateTime.now(); setState(() => _month = DateTime(now.year, now.month, 1)); _load(); }
+  void _goToday()   { final n = DateTime.now(); setState(() => _month = DateTime(n.year, n.month, 1)); _load(); }
 
   Future<void> _editDay(DateTime day) async {
     final ymd = _ymd(day);
@@ -52,18 +52,16 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface, // Kontrast sicher
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
       builder: (ctx) {
         return Padding(
-          padding: EdgeInsets.only(
-            left: 16, right: 16, top: 12,
-            bottom: 16 + MediaQuery.of(ctx).viewInsets.bottom,
-          ),
+          padding: EdgeInsets.only(left:16, right:16, top:12, bottom:16 + MediaQuery.of(ctx).viewInsets.bottom),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(height: 4, width: 40, margin: const EdgeInsets.only(bottom: 8), decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+              Container(height: 4, width: 40, margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
               Text(DateFormat('EEEE, dd.MM.yyyy', 'de_DE').format(day), style: const TextStyle(fontWeight: FontWeight.w800)),
               const SizedBox(height: 12),
               DropdownButtonFormField<int?>(
@@ -137,7 +135,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
         actions: [
           IconButton(onPressed: _prevMonth, icon: const Icon(Icons.chevron_left)),
           IconButton(onPressed: _nextMonth, icon: const Icon(Icons.chevron_right)),
-          IconButton(onPressed: _goToday, icon: const Icon(Icons.today)),
+          IconButton(onPressed: _goToday,   icon: const Icon(Icons.today)),
         ],
       ),
       body: _loading
@@ -146,7 +144,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
               child: Column(
                 children: [
-                  _WeekdayHeader(),
+                  const _WeekdayHeader(),
                   const SizedBox(height: 6),
                   Expanded(child: _MonthGrid(
                     month: _month,
@@ -165,10 +163,10 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
 }
 
 class _WeekdayHeader extends StatelessWidget {
-  final List<String> labels = const ['Mo','Di','Mi','Do','Fr','Sa','So'];
   const _WeekdayHeader({super.key});
   @override
   Widget build(BuildContext context) {
+    const labels = ['Mo','Di','Mi','Do','Fr','Sa','So'];
     return Row(
       children: labels.map((l) => Expanded(
         child: Padding(
@@ -206,9 +204,7 @@ class _MonthGrid extends StatelessWidget {
 
     return GridView.builder(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 7,
-        crossAxisSpacing: 6,
-        mainAxisSpacing: 6,
+        crossAxisCount: 7, crossAxisSpacing: 6, mainAxisSpacing: 6,
       ),
       itemCount: totalCells,
       itemBuilder: (context, idx) {
@@ -222,8 +218,9 @@ class _MonthGrid extends StatelessWidget {
         final hasPlan = planned != null;
 
         final isToday = isTodayMonth && (day.day == today.day);
-        final border = isToday ? Border.all(color: Theme.of(context).colorScheme.primary, width: 1.2)
-                               : Border.all(color: Colors.white12);
+        final border = isToday
+          ? Border.all(color: Theme.of(context).colorScheme.primary, width: 1.2)
+          : Border.all(color: Colors.white12);
 
         return InkWell(
           borderRadius: BorderRadius.circular(14),
