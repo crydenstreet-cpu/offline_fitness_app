@@ -7,6 +7,7 @@ class AppColors {
   static const primary   = Color(0xFF00E0C6);
   static const secondary = Color(0xFF7AE582);
   static const text      = Colors.white;
+  static const textMuted = Colors.white54; // <- für components.dart
 }
 
 ThemeData buildAppTheme() {
@@ -24,23 +25,34 @@ ThemeData buildAppTheme() {
     useMaterial3: true,
     scaffoldBackgroundColor: AppColors.bg,
     colorScheme: cs,
+
     appBarTheme: const AppBarTheme(
       backgroundColor: AppColors.bg,
       elevation: 0,
-      titleTextStyle: TextStyle(color: AppColors.text, fontWeight: FontWeight.w700, fontSize: 18),
+      titleTextStyle: TextStyle(
+        color: AppColors.text,
+        fontWeight: FontWeight.w700,
+        fontSize: 18,
+      ),
     ),
-    cardTheme: const CardTheme(
+
+    // Flutter 3.35 erwartet hier CardThemeData (nicht CardTheme)
+    cardTheme: const CardThemeData(
       color: AppColors.surface,
       elevation: 0,
       margin: EdgeInsets.symmetric(vertical: 6, horizontal: 0),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(14))),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(14)),
+      ),
     ),
+
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: AppColors.bg,
       selectedItemColor: AppColors.primary,
       unselectedItemColor: Colors.white70,
       type: BottomNavigationBarType.fixed,
     ),
+
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: AppColors.surface2,
@@ -60,23 +72,38 @@ ThemeData buildAppTheme() {
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     ),
+
+    // In neueren Flutter-Versionen: MaterialStatePropertyAll statt WidgetStatePropertyAll
     dropdownMenuTheme: const DropdownMenuThemeData(
       menuStyle: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(AppColors.surface2),
-        shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12)))),
+        backgroundColor: MaterialStatePropertyAll(AppColors.surface2),
+        shape: MaterialStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+          ),
+        ),
       ),
     ),
+
     dialogBackgroundColor: AppColors.surface,
     snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
   );
 }
 
-/// Einheitliches Scaffold (sorgt für identische Hintergründe)
+/// Einheitliches Scaffold – jetzt mit FAB-Support
 class AppScaffold extends StatelessWidget {
   final PreferredSizeWidget? appBar;
   final Widget body;
   final Widget? bottom;
-  const AppScaffold({super.key, this.appBar, required this.body, this.bottom});
+  final Widget? fab; // <- hinzugefügt
+
+  const AppScaffold({
+    super.key,
+    this.appBar,
+    required this.body,
+    this.bottom,
+    this.fab,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -85,6 +112,7 @@ class AppScaffold extends StatelessWidget {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: body,
       bottomNavigationBar: bottom,
+      floatingActionButton: fab, // <- durchgereicht
     );
   }
 }
