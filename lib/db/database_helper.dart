@@ -19,7 +19,7 @@ class DB {
 
     return openDatabase(
       path,
-      version: 5, // ⬅️ v5: motivation-Feld im Journal
+      version: 5, // v5: motivation-Feld im Journal
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -93,7 +93,7 @@ class DB {
             mood INTEGER,
             energy INTEGER,
             sleep INTEGER,
-            motivation INTEGER,         -- ⬅️ neu in v5
+            motivation INTEGER,
             linked_session_id INTEGER,
             tags TEXT,
             FOREIGN KEY(linked_session_id) REFERENCES sessions(id) ON DELETE SET NULL
@@ -142,7 +142,6 @@ class DB {
           ''');
         }
         if (oldVersion < 5) {
-          // ⬇️ v5 Migration: motivation-Spalte im Journal
           final cols = await db.rawQuery('PRAGMA table_info(journal_entries);');
           final hasMotivation = cols.any((c) => (c['name'] as String?) == 'motivation');
           if (!hasMotivation) {
@@ -291,16 +290,46 @@ class DB {
     return (w is num) ? w.toDouble() : double.tryParse('$w');
   }
 
-  // -------- JOURNAL --------
-  // Einheitliche Helfer; Datum als 'yyyy-MM-dd' per _ymd.
+  /// ---- NEU: für Auto-Vorbelegung / Bearbeiten / Löschen ----
 
+  /// Letzter Satz dieser Übung in DIESER Session (für Auto-Vorbelegung)
+  Future<Map<String, dynamic>?> lastSetForExerciseInSession(int sessionId, int exerciseId) async {
+    final db = await database;
+    final rows = await db.query(
+      'workout_sets',
+      where: 'session_id = ? AND exercise_id = ?',
+      whereArgs: [sessionId, exerciseId],
+      orderBy: 'set_index DESC, id DESC',
+      limit: 1,
+    );
+    return rows.isNotEmpty ? rows.first : null;
+  }
+
+  /// Einen Satz aktualisieren (z. B. Reps/Gewicht/Notiz anpassen)
+  Future<int> updateSet(int id, {int? reps, double? weight, String? note}) async {
+    final db = await database;
+    final data = <String, Object?>{};
+    if (reps != null) data['reps'] = reps;
+    if (weight != null) data['weight'] = weight;
+    if (note != null) data['note'] = note;
+    if (data.isEmpty) return 0;
+    return db.update('workout_sets', data, where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Einen Satz löschen
+  Future<int> deleteSet(int id) async {
+    final db = await database;
+    return db.delete('workout_sets', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // -------- JOURNAL --------
   Future<int> insertJournal(
     DateTime date,
     String note, {
     int mood = 3,
     int? energy,
     int? sleep,
-    int? motivation,             // ⬅️ neu
+    int? motivation,
     int? linkedSessionId,
     String? tags,
   }) async {
@@ -311,7 +340,7 @@ class DB {
       'mood': mood,
       'energy': energy,
       'sleep': sleep,
-      'motivation': motivation,  // ⬅️ neu
+      'motivation': motivation,
       'linked_session_id': linkedSessionId,
       'tags': tags,
     });
@@ -324,7 +353,7 @@ class DB {
     int? mood,
     int? energy,
     int? sleep,
-    int? motivation,             // ⬅️ neu
+    int? motivation,
     int? linkedSessionId,
     String? tags,
   }) async {
@@ -335,7 +364,7 @@ class DB {
     if (mood != null) data['mood'] = mood;
     if (energy != null) data['energy'] = energy;
     if (sleep != null) data['sleep'] = sleep;
-    if (motivation != null) data['motivation'] = motivation; // ⬅️ neu
+    if (motivation != null) data['motivation'] = motivation;
     if (linkedSessionId != null) data['linked_session_id'] = linkedSessionId;
     if (tags != null) data['tags'] = tags;
     if (data.isEmpty) return 0;
@@ -349,7 +378,6 @@ class DB {
 
   Future<List<Map<String, dynamic>>> getJournal({int limit = 200}) async {
     final db = await database;
-    // text -> note als Alias
     return db.rawQuery('''
       SELECT
         id,
@@ -358,7 +386,7 @@ class DB {
         mood,
         energy,
         sleep,
-        motivation,            -- ⬅️ neu
+        motivation,
         linked_session_id,
         tags
       FROM journal_entries
@@ -479,7 +507,6 @@ class DB {
   }
 
   // -------- DASHBOARD / STATS HELPERS --------
-
   Future<Map<String, dynamic>?> lastSessionSummary() async {
     final db = await database;
     final rows = await db.rawQuery('''
