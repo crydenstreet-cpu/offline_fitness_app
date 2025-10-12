@@ -256,10 +256,12 @@ class DB {
 
   Future<List<Map<String, dynamic>>> getSetsOfSession(int sessionId) async {
     final db = await database;
-    return db.query('workout_sets',
-        where: 'session_id = ?',
-        whereArgs: [sessionId],
-        orderBy: 'exercise_id ASC, set_index ASC');
+    return db.query(
+      'workout_sets',
+      where: 'session_id = ?',
+      whereArgs: [sessionId],
+      orderBy: 'exercise_id ASC, set_index ASC',
+    );
   }
 
   Future<double?> lastWeightForExercise(int exerciseId) async {
@@ -278,22 +280,75 @@ class DB {
   }
 
   // -------- JOURNAL --------
-  Future<int> insertJournal(Map<String, dynamic> entry) async {
+  // Einheitliche Helfer, die die Tabelle `journal_entries` nutzen.
+  // Datum speichern wir als 'yyyy-MM-dd' (per _ymd).
+
+  Future<int> insertJournal(
+    DateTime date,
+    String note, {
+    int mood = 3,
+    int? energy,
+    int? sleep,
+    int? linkedSessionId,
+    String? tags,
+  }) async {
     final db = await database;
-    entry['date'] ??= DateTime.now().toIso8601String();
-    return db.insert('journal_entries', entry);
+    return db.insert('journal_entries', {
+      'date': _ymd(date),
+      'text': note,
+      'mood': mood,
+      'energy': energy,
+      'sleep': sleep,
+      'linked_session_id': linkedSessionId,
+      'tags': tags,
+    });
   }
 
-  Future<List<Map<String, dynamic>>> getJournal({String? fromIso, String? toIso}) async {
+  Future<int> updateJournal({
+    required int id,
+    DateTime? date,
+    String? note,
+    int? mood,
+    int? energy,
+    int? sleep,
+    int? linkedSessionId,
+    String? tags,
+  }) async {
     final db = await database;
-    var where = <String>[];
-    var args = <dynamic>[];
-    if (fromIso != null) { where.add('date >= ?'); args.add(fromIso); }
-    if (toIso != null)   { where.add('date <  ?'); args.add(toIso);  }
-    return db.query('journal_entries',
-      where: where.isEmpty ? null : where.join(' AND '),
-      whereArgs: args,
-      orderBy: 'date DESC');
+    final data = <String, Object?>{};
+    if (date != null) data['date'] = _ymd(date);
+    if (note != null) data['text'] = note;
+    if (mood != null) data['mood'] = mood;
+    if (energy != null) data['energy'] = energy;
+    if (sleep != null) data['sleep'] = sleep;
+    if (linkedSessionId != null) data['linked_session_id'] = linkedSessionId;
+    if (tags != null) data['tags'] = tags;
+    if (data.isEmpty) return 0;
+    return db.update('journal_entries', data, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> deleteJournal(int id) async {
+    final db = await database;
+    return db.delete('journal_entries', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<List<Map<String, dynamic>>> getJournal({int limit = 200}) async {
+    final db = await database;
+    // Alias: text -> note, damit das UI keinen Null-Text sieht
+    return db.rawQuery('''
+      SELECT
+        id,
+        date,
+        text AS note,
+        mood,
+        energy,
+        sleep,
+        linked_session_id,
+        tags
+      FROM journal_entries
+      ORDER BY date DESC, id DESC
+      LIMIT ?
+    ''', [limit]);
   }
 
   // -------- PROGRESS --------
@@ -352,9 +407,11 @@ class DB {
   // -------- SCHEDULE --------
   Future<void> upsertSchedule(String ymd, int workoutId, {String? note}) async {
     final db = await database;
-    await db.insert('workout_schedule', {
-      'date': ymd, 'workout_id': workoutId, 'note': note
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+      'workout_schedule',
+      {'date': ymd, 'workout_id': workoutId, 'note': note},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<void> generateSchedule({
@@ -372,10 +429,11 @@ class DB {
       final workoutId = weekdayToWorkoutId[weekday];
       if (workoutId != null) {
         final ymd = _ymd(day);
-        batch.insert('workout_schedule', {
-          'date': ymd,
-          'workout_id': workoutId,
-        }, conflictAlgorithm: ConflictAlgorithm.replace);
+        batch.insert(
+          'workout_schedule',
+          {'date': ymd, 'workout_id': workoutId},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
       }
     }
     await batch.commit(noResult: true);
@@ -384,7 +442,7 @@ class DB {
   Future<List<Map<String, dynamic>>> getScheduleBetween(DateTime from, DateTime to) async {
     final db = await database;
     final fromY = _ymd(from);
-    final toY   = _ymd(to);
+    final toY = _ymd(to);
     return db.rawQuery('''
       SELECT s.date, s.workout_id, w.name AS workout_name
       FROM workout_schedule s
@@ -404,6 +462,7 @@ class DB {
     return db.delete('workout_schedule', where: 'date = ?', whereArgs: [ymd]);
   }
 
+  // -------- Utils --------
   String _ymd(DateTime d) =>
-      '${d.year.toString().padLeft(4,'0')}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
