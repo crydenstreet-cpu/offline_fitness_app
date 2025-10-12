@@ -47,16 +47,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 final d = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
                 sub = DateFormat('EEE, dd.MM.yyyy', 'de_DE').format(d);
               }
-              return AppCard(
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.event_available),
-                  title: const Text('Nächster Termin', style: TextStyle(fontWeight: FontWeight.w800)),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text('$title\n$sub'),
-                  ),
-                ),
+              return _cardTile(
+                context,
+                leading: const Icon(Icons.event_available),
+                title: 'Nächster Termin',
+                subtitle: '$title\n$sub',
               );
             },
           ),
@@ -77,16 +72,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 sets = (row['sets_count'] as num?)?.toInt() ?? 0;
                 volume = (row['total_volume'] as num?)?.toDouble() ?? 0.0;
               }
-              return AppCard(
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.fitness_center),
-                  title: const Text('Letzte Session', style: TextStyle(fontWeight: FontWeight.w800)),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text('Zeit: $when\nSätze: $sets   •   Volumen: ${_short(volume)}'),
-                  ),
-                ),
+              return _cardTile(
+                context,
+                leading: const Icon(Icons.fitness_center),
+                title: 'Letzte Session',
+                subtitle: 'Zeit: $when\nSätze: $sets   •   Volumen: ${_short(volume)}',
               );
             },
           ),
@@ -99,20 +89,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
             builder: (context, snap) {
               final v = snap.data;
               final label = v == null ? '—' : v.toStringAsFixed(1);
-              return AppCard(
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.emoji_emotions),
-                  title: const Text('Stimmung (Ø 7 Tage)', style: TextStyle(fontWeight: FontWeight.w800)),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(label),
-                  ),
-                ),
+              return _cardTile(
+                context,
+                leading: const Icon(Icons.emoji_emotions),
+                title: 'Stimmung (Ø 7 Tage)',
+                subtitle: label,
               );
             },
           ),
         ],
+      ),
+    );
+  }
+
+  // Kleiner Helfer für hübsche Karten
+  Widget _cardTile(
+    BuildContext context, {
+    required Widget leading,
+    required String title,
+    required String subtitle,
+  }) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: leading,
+          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(subtitle),
+          ),
+        ),
       ),
     );
   }
