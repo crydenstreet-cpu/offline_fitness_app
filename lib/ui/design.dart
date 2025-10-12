@@ -1,99 +1,60 @@
+// lib/ui/design.dart
 import 'package:flutter/material.dart';
 
-/// Zentrale Farben (Sportlich-Modern: Türkis/Anthrazit)
+/// Farben & Gradients
 class AppColors {
-  static const Color primary = Color(0xFF00E0C6);
-  static const Color secondary = Color(0xFF66FFE9);
+  // Brand
+  static const Color primary   = Color(0xFF00E0C6);
+  static const Color secondary = Color(0xFF00B2A9);
 
-  // Hintergründe für Gradient
-  static const Color bgDarkTop = Color(0xFF0C1014);
-  static const Color bgDarkBottom = Color(0xFF1A1F26);
+  // Text
+  static const Color text       = Colors.white;
+  static const Color textMuted  = Colors.white70;
 
-  static const Color bgLightTop = Color(0xFFF5FFFF);
+  // Flächen
+  static const Color surface2 = Color(0xFF1E2730);
+
+  // Gradients (Light/Dark)
+  static const Color bgDarkTop     = Color(0xFF0C1014);
+  static const Color bgDarkBottom  = Color(0xFF1A1F26);
+  static const Color bgLightTop    = Color(0xFFF5FFFF);
   static const Color bgLightBottom = Color(0xFFE6FFFC);
-
-  // Karten-/Flächenfarben
-  static const Color surfaceDark = Color(0xFF10151B);
-  static const Color surfaceDark2 = Color(0xFF151B22);
-
-  // von UI-Komponenten referenziert
-  static const Color surface2 = surfaceDark2;       // Alias
-  static const Color textMuted = Colors.white70;    // für Untertitel
-  static const Color text = Colors.white; // für Komponenten, die AppColors.text nutzen
 }
 
-/// Light Theme (Material 3 + transparente Scaffold-Farbe für Gradient)
-ThemeData buildLightTheme() {
-  final scheme = ColorScheme.fromSeed(
-    seedColor: AppColors.primary,
-    brightness: Brightness.light,
-    primary: AppColors.primary,
-    secondary: AppColors.secondary,
-    surface: Colors.white,
-    background: Colors.white,
-  );
-  return ThemeData(
-    colorScheme: scheme,
-    useMaterial3: true,
-    scaffoldBackgroundColor: Colors.transparent,
+/// Ein Theme (du kannst später Light/Dark trennen – aktuell einheitlich)
+ThemeData buildAppTheme() {
+  final base = ThemeData.dark();
+  return base.copyWith(
+    colorScheme: base.colorScheme.copyWith(
+      primary: AppColors.primary,
+      secondary: AppColors.secondary,
+    ),
+    scaffoldBackgroundColor: Colors.transparent, // wichtig für Gradient
     appBarTheme: const AppBarTheme(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      foregroundColor: Colors.black87,
+      centerTitle: false,
     ),
-    inputDecorationTheme: const InputDecorationTheme(
-      border: OutlineInputBorder(),
-    ),
-    cardTheme: CardThemeData(
-      color: Colors.white,
+    cardTheme: const CardTheme().copyWith(
+      color: const Color(0xFF151C22),
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 0),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    ),
+    inputDecorationTheme: const InputDecorationTheme(
+      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      type: BottomNavigationBarType.fixed,
-    ),
-  );
-}
-
-/// Dark Theme (Material 3 + transparente Scaffold-Farbe für Gradient)
-ThemeData buildDarkTheme() {
-  final scheme = ColorScheme.fromSeed(
-    seedColor: AppColors.primary,
-    brightness: Brightness.dark,
-    primary: AppColors.primary,
-    secondary: AppColors.secondary,
-    surface: AppColors.surfaceDark,
-    background: Color(0xFF0E1318),
-  );
-  return ThemeData(
-    colorScheme: scheme,
-    useMaterial3: true,
-    scaffoldBackgroundColor: Colors.transparent,
-    appBarTheme: const AppBarTheme(
       backgroundColor: Colors.transparent,
-      elevation: 0,
-      foregroundColor: Colors.white,
-    ),
-    inputDecorationTheme: const InputDecorationTheme(
-      border: OutlineInputBorder(),
-    ),
-    cardTheme: CardThemeData(
-      color: AppColors.surfaceDark2,
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 0),
-    ),
-    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      selectedItemColor: AppColors.primary,
+      unselectedItemColor: AppColors.textMuted,
       type: BottomNavigationBarType.fixed,
     ),
+    useMaterial3: true,
   );
 }
 
-/// Kompatibler Wrapper (falls irgendwo noch buildAppTheme() genutzt wird)
-ThemeData buildAppTheme() => buildDarkTheme();
-
-/// Hintergrund mit Gradient (hell/dunkel abhängig vom Theme)
+/// Hintergrund mit Gradient (passt sich an Brightness an)
 class GradientBackground extends StatelessWidget {
   final Widget child;
   const GradientBackground({super.key, required this.child});
@@ -101,15 +62,14 @@ class GradientBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final top = isDark ? AppColors.bgDarkTop : AppColors.bgLightTop;
+    final top    = isDark ? AppColors.bgDarkTop    : AppColors.bgLightTop;
     final bottom = isDark ? AppColors.bgDarkBottom : AppColors.bgLightBottom;
 
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
           colors: [top, bottom],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
         ),
       ),
       child: child,
@@ -117,14 +77,13 @@ class GradientBackground extends StatelessWidget {
   }
 }
 
-// ui/design.dart (Ausschnitt)
-
+/// Einheitliches Scaffold (AppBar, Drawer, FAB, BottomBar + Gradient)
 class AppScaffold extends StatelessWidget {
   final PreferredSizeWidget? appBar;
   final Widget body;
   final Widget? bottom;
   final FloatingActionButton? fab;
-  final Widget? drawer; // ⬅️ NEU
+  final Widget? drawer;
 
   const AppScaffold({
     super.key,
@@ -132,19 +91,34 @@ class AppScaffold extends StatelessWidget {
     required this.body,
     this.bottom,
     this.fab,
-    this.drawer, // ⬅️ NEU
+    this.drawer,
   });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: appBar,
-      drawer: drawer, // ⬅️ NEU
+      drawer: drawer,
       body: GradientBackground(child: SafeArea(child: body)),
       bottomNavigationBar: bottom,
       floatingActionButton: fab,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
 
+/// Card mit standardisiertem Padding / Look
+class AppCard extends StatelessWidget {
+  final Widget child;
+  const AppCard({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: child,
+      ),
+    );
+  }
 }
