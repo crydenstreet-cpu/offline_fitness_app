@@ -1,133 +1,27 @@
 import 'package:flutter/material.dart';
 
+/// Zentrale Farben (Sportlich-Modern: Türkis/Anthrazit)
 class AppColors {
-  static const bg        = Color(0xFF0B0D0E);
-  static const surface   = Color(0xFF121416);
-  static const surface2  = Color(0xFF1A1E22);
-  static const primary   = Color(0xFF00E0C6);
-  static const secondary = Color(0xFF7AE582);
-  static const text      = Colors.white;
-  static const textMuted = Colors.white54; // <- für components.dart
-}
-
-ThemeData buildAppTheme() {
-  final cs = ColorScheme.fromSeed(
-    seedColor: AppColors.primary,
-    brightness: Brightness.dark,
-    background: AppColors.bg,
-    surface: AppColors.surface,
-    primary: AppColors.primary,
-    secondary: AppColors.secondary,
-  );
-
-  return ThemeData(
-    brightness: Brightness.dark,
-    useMaterial3: true,
-    scaffoldBackgroundColor: AppColors.bg,
-    colorScheme: cs,
-
-    appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.bg,
-      elevation: 0,
-      titleTextStyle: TextStyle(
-        color: AppColors.text,
-        fontWeight: FontWeight.w700,
-        fontSize: 18,
-      ),
-    ),
-
-    // Flutter 3.35 erwartet hier CardThemeData (nicht CardTheme)
-    cardTheme: const CardThemeData(
-      color: AppColors.surface,
-      elevation: 0,
-      margin: EdgeInsets.symmetric(vertical: 6, horizontal: 0),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(14)),
-      ),
-    ),
-
-    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: AppColors.bg,
-      selectedItemColor: AppColors.primary,
-      unselectedItemColor: Colors.white70,
-      type: BottomNavigationBarType.fixed,
-    ),
-
-    inputDecorationTheme: InputDecorationTheme(
-      filled: true,
-      fillColor: AppColors.surface2,
-      labelStyle: const TextStyle(color: Colors.white70),
-      hintStyle: const TextStyle(color: Colors.white54),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.white24),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.white24),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.primary, width: 1.4),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-    ),
-
-    // In neueren Flutter-Versionen: MaterialStatePropertyAll statt WidgetStatePropertyAll
-    dropdownMenuTheme: const DropdownMenuThemeData(
-      menuStyle: MenuStyle(
-        backgroundColor: MaterialStatePropertyAll(AppColors.surface2),
-        shape: MaterialStatePropertyAll(
-          RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-          ),
-        ),
-      ),
-    ),
-
-    dialogBackgroundColor: AppColors.surface,
-    snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
-  );
-}
-
-/// Einheitliches Scaffold – jetzt mit FAB-Support
-class AppScaffold extends StatelessWidget {
-  final PreferredSizeWidget? appBar;
-  final Widget body;
-  final Widget? bottom;
-  final Widget? fab; // <- hinzugefügt
-
-  const AppScaffold({
-    super.key,
-    this.appBar,
-    required this.body,
-    this.bottom,
-    this.fab,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: appBar,
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: body,
-      bottomNavigationBar: bottom,
-      floatingActionButton: fab, // <- durchgereicht
-
-      import 'package:flutter/material.dart';
-
-class AppColors {
-  // Sportlich-modern: Türkis/Anthrazit
   static const Color primary = Color(0xFF00E0C6);
   static const Color secondary = Color(0xFF66FFE9);
 
+  // Hintergründe für Gradient
   static const Color bgDarkTop = Color(0xFF0C1014);
   static const Color bgDarkBottom = Color(0xFF1A1F26);
 
   static const Color bgLightTop = Color(0xFFF5FFFF);
   static const Color bgLightBottom = Color(0xFFE6FFFC);
+
+  // Karten-/Flächenfarben
+  static const Color surfaceDark = Color(0xFF10151B);
+  static const Color surfaceDark2 = Color(0xFF151B22);
+
+  // von UI-Komponenten referenziert
+  static const Color surface2 = surfaceDark2;       // Alias
+  static const Color textMuted = Colors.white70;    // für Untertitel
 }
 
+/// Light Theme (Material 3 + transparente Scaffold-Farbe für Gradient)
 ThemeData buildLightTheme() {
   final scheme = ColorScheme.fromSeed(
     seedColor: AppColors.primary,
@@ -141,31 +35,35 @@ ThemeData buildLightTheme() {
     colorScheme: scheme,
     useMaterial3: true,
     scaffoldBackgroundColor: Colors.transparent,
-    appBarTheme: AppBarTheme(
+    appBarTheme: const AppBarTheme(
       backgroundColor: Colors.transparent,
       elevation: 0,
       foregroundColor: Colors.black87,
     ),
-    cardTheme: const CardTheme().copyWith(
+    inputDecorationTheme: const InputDecorationTheme(
+      border: OutlineInputBorder(),
+    ),
+    cardTheme: CardThemeData(
       color: Colors.white,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 0),
     ),
-    inputDecorationTheme: const InputDecorationTheme(
-      border: OutlineInputBorder(),
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      type: BottomNavigationBarType.fixed,
     ),
   );
 }
 
+/// Dark Theme (Material 3 + transparente Scaffold-Farbe für Gradient)
 ThemeData buildDarkTheme() {
   final scheme = ColorScheme.fromSeed(
     seedColor: AppColors.primary,
     brightness: Brightness.dark,
     primary: AppColors.primary,
     secondary: AppColors.secondary,
-    surface: const Color(0xFF10151B),
-    background: const Color(0xFF0E1318),
+    surface: AppColors.surfaceDark,
+    background: Color(0xFF0E1318),
   );
   return ThemeData(
     colorScheme: scheme,
@@ -176,19 +74,25 @@ ThemeData buildDarkTheme() {
       elevation: 0,
       foregroundColor: Colors.white,
     ),
-    cardTheme: const CardTheme().copyWith(
-      color: const Color(0xFF151B22),
+    inputDecorationTheme: const InputDecorationTheme(
+      border: OutlineInputBorder(),
+    ),
+    cardTheme: CardThemeData(
+      color: AppColors.surfaceDark2,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 0),
     ),
-    inputDecorationTheme: const InputDecorationTheme(
-      border: OutlineInputBorder(),
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      type: BottomNavigationBarType.fixed,
     ),
   );
 }
 
-/// Hintergrund mit Gradient, abhängig vom Theme (hell/dunkel)
+/// Kompatibler Wrapper (falls irgendwo noch buildAppTheme() genutzt wird)
+ThemeData buildAppTheme() => buildDarkTheme();
+
+/// Hintergrund mit Gradient (hell/dunkel abhängig vom Theme)
 class GradientBackground extends StatelessWidget {
   final Widget child;
   const GradientBackground({super.key, required this.child});
@@ -212,7 +116,7 @@ class GradientBackground extends StatelessWidget {
   }
 }
 
-/// Minimaler AppScaffold, der die GradientBackground nutzt.
+/// Scaffold, das automatisch den Gradient-Hintergrund nutzt
 class AppScaffold extends StatelessWidget {
   final PreferredSizeWidget? appBar;
   final Widget body;
@@ -240,4 +144,3 @@ class AppScaffold extends StatelessWidget {
     );
   }
 }
-
