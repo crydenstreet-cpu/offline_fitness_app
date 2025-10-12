@@ -461,7 +461,89 @@ class DB {
     final db = await database;
     return db.delete('workout_schedule', where: 'date = ?', whereArgs: [ymd]);
   }
+  // --- Dashboard/Stats Helpers ---
 
+/// Letzte Session (Datum + grobe Kennzahlen)
+Future<Map<String, dynamic>?> lastSessionSummary() async {
+  final db = await database;
+  final rows = await db.rawQuery('''
+    SELECT s.id as session_id,
+           s.started_at as started_at,
+           COUNT(ws.id) as sets_count,
+           COALESCE(SUM(ws.weight * ws.reps), 0) as total_volume
+    FROM sessions s
+    LEFT JOIN workout_sets ws ON ws.session_id = s.id
+    ORDER BY s.started_at DESC
+    LIMIT 1
+  ''');
+  return rows.isNotEmpty ? rows.first : null;
+}
+
+/// Nächster geplanter Workout-Termin ab heute
+Future<Map<String, dynamic>?> nextPlannedWorkout() async {
+  final db = await database;
+  final today = DateTime.now();
+  final ymd = _ymd(DateTime(today.year, today.month, today.day));
+  final rows = await db.rawQuery('''
+    SELECT s.date, s.workout_id, w.name AS workout_name
+    FROM workout_schedule s
+    JOIN workouts w ON w.id = s.workout_id
+    WHERE s.date >= ?
+    ORDER BY s.date ASC
+    LIMIT 1
+  ''', [ymd]);
+  return rows.isNotEmpty ? rows.first : null;
+}
+
+/// Volumen pro Tag über alle Übungen (letzte N Tage)
+Future<List<Map<String, dynamic>>> volumeByDayAll({int days = 14}) async {
+  final db = await database;
+  final since = DateTime.now().subtract(Duration(days: days - 1));
+  final sinceIso = since.toIso8601String().substring(0, 10); // yyyy-MM-dd
+  return db.rawQuery('''
+    SELECT substr(s.started_at, 1, 10) AS day,
+           COALESCE(SUM(ws.weight * ws.reps), 0) AS volume
+    FROM sessions s
+    LEFT JOIN workout_sets ws ON ws.session_id = s.id
+    WHERE substr(s.started_at,1,10) >= ?
+    GROUP BY day
+    ORDER BY day ASC
+  ''', [sinceIso]);
+}
+
+/// Stimmung der letzten 7 Tage (Durchschnitt 1..5)
+Future<double?> averageMoodLast7Days() async {
+  final db = await database;
+  final since = DateTime.now().subtract(const Duration(days: 6));
+  final rows = await db.rawQuery('''
+    SELECT AVG(mood) as avg_mood
+    FROM journal_entries
+    WHERE date >= ?
+  ''', [_ymd(since)]);
+  if (rows.isEmpty) return null;
+  final v = rows.first['avg_mood'];
+  if (v == null) return null;
+  if (v is num) return v.toDouble();
+  return double.tryParse('$v');
+}
+
+/// Gesamtvolumen in einem Bereich
+Future<int> totalVolumeBetween(DateTime from, DateTime to) async {
+  final db = await database;
+  final fromIso = from.toIso8601String();
+  final toIso = to.toIso8601String();
+  final rows = await db.rawQuery('''
+    SELECT COALESCE(SUM(ws.weight * ws.reps),0) as vol
+    FROM workout_sets ws
+    JOIN sessions s ON s.id = ws.session_id
+    WHERE s.started_at >= ? AND s.started_at < ?
+  ''', [fromIso, toIso]);
+  if (rows.isEmpty) return 0;
+  final v = rows.first['vol'];
+  if (v is num) return v.toInt();
+  return int.tryParse('$v') ?? 0;
+}
+  
   // -------- Utils --------
   String _ymd(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
