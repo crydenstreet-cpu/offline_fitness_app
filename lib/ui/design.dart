@@ -8,8 +8,8 @@ class AppColors {
   static const Color secondary = Color(0xFF00B2A9);
 
   // Text
-  static const Color text       = Colors.white;
-  static const Color textMuted  = Colors.white70;
+  static const Color text      = Colors.white;
+  static const Color textMuted = Colors.white70;
 
   // Flächen
   static const Color surface2 = Color(0xFF1E2730);
@@ -21,7 +21,7 @@ class AppColors {
   static const Color bgLightBottom = Color(0xFFE6FFFC);
 }
 
-/// Ein Theme (du kannst später Light/Dark trennen – aktuell einheitlich)
+/// Ein Theme (aktuell Dark-basiert; Light kannst du später hinzufügen)
 ThemeData buildAppTheme() {
   final base = ThemeData.dark();
   return base.copyWith(
@@ -35,7 +35,8 @@ ThemeData buildAppTheme() {
       elevation: 0,
       centerTitle: false,
     ),
-    cardTheme: const CardTheme().copyWith(
+    // ✅ CardThemeData statt CardTheme
+    cardTheme: const CardThemeData().copyWith(
       color: const Color(0xFF151C22),
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
