@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:offline_fitness_app/db/database_helper.dart';
 import 'package:offline_fitness_app/screens/sessions.dart';
-import 'package:offline_fitness_app/ui/design.dart'; // <- wichtig: AppScaffold & Farben
+import 'package:offline_fitness_app/ui/design.dart';
 
 class PlannerScreen extends StatefulWidget {
   const PlannerScreen({super.key});
@@ -31,6 +31,12 @@ class _PlannerScreenState extends State<PlannerScreen> {
     setState(() { _workouts = ws; _upcoming = up; _loading = false; });
   }
 
+  Future<void> _quickCreateWorkout() async {
+    final id = await DB.instance.insertWorkout('Ganzkörper');
+    setState(() => _workouts.insert(0, {'id': id, 'name': 'Ganzkörper'}));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('„Ganzkörper“ angelegt.')));
+  }
+
   Future<void> _pickStartDate() async {
     final init = DateTime(_start.year, _start.month, _start.day);
     final picked = await showDatePicker(
@@ -39,6 +45,13 @@ class _PlannerScreenState extends State<PlannerScreen> {
       firstDate: DateTime.now().subtract(const Duration(days: 365)),
       lastDate: DateTime.now().add(const Duration(days: 365*3)),
       helpText: 'Startdatum wählen',
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: Theme.of(ctx).colorScheme,
+          dialogBackgroundColor: Theme.of(ctx).colorScheme.surface,
+        ),
+        child: child!,
+      ),
     );
     if (picked != null) setState(() => _start = picked);
   }
@@ -80,11 +93,15 @@ class _PlannerScreenState extends State<PlannerScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         children: [
           if (noWorkouts)
-            const Card(
+            Card(
               child: ListTile(
-                leading: Icon(Icons.info_outline),
-                title: Text('Noch keine Workouts angelegt'),
-                subtitle: Text('Lege zuerst Workouts im Tab „Workouts“ an. Danach kannst du sie hier zuweisen.'),
+                leading: const Icon(Icons.info_outline),
+                title: const Text('Noch keine Workouts angelegt'),
+                subtitle: const Text('Lege zuerst Workouts im Tab „Workouts“ an – oder erstelle eines hier.'),
+                trailing: ElevatedButton(
+                  onPressed: _quickCreateWorkout,
+                  child: const Text('Schnell-Workout'),
+                ),
               ),
             ),
 
@@ -107,8 +124,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
                   Expanded(
                     child: DropdownButtonFormField<int>(
                       value: _weeks,
-                      dropdownColor: Theme.of(context).colorScheme.surface, // Kontrast sicher
                       decoration: const InputDecoration(labelText: 'Wochen'),
+                      dropdownColor: Theme.of(context).colorScheme.surface,
                       items: [1,2,3,4,6,8,12]
                           .map((w) => DropdownMenuItem(value: w, child: Text('$w')))
                           .toList(),
@@ -159,7 +176,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 }),
                 const SizedBox(height: 12),
                 ElevatedButton.icon(
-                  onPressed: noWorkouts ? null : _generate,
+                  onPressed: (_workouts.isEmpty) ? null : _generate,
                   icon: const Icon(Icons.save),
                   label: const Text('Plan erzeugen & speichern'),
                 ),
