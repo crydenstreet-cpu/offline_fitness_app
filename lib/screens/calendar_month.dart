@@ -53,31 +53,44 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
   void _goToday()   { final n = DateTime.now(); setState(() => _month = DateTime(n.year, n.month, 1)); _load(); }
 
   Future<void> _editDay(DateTime day) async {
-    final ymd = _ymd(day);
-    int? selected = _scheduleByYmd[ymd]?['workout_id'] as int?;
+  final ymd = _ymd(day);
+  int? selected = _scheduleByYmd[ymd]?['workout_id'] as int?;
 
-    final saved = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 16, right: 16, top: 12,
-            bottom: 16 + MediaQuery.of(ctx).viewInsets.bottom,
-          ),
+  final saved = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true, // ⬅️ schützt vor Task-/Nav-Bar (Dex, Notch etc.)
+    backgroundColor: Theme.of(context).colorScheme.surface,
+    // ⬇️ Sheet höher machen (70% der Bildschirmhöhe)
+    constraints: BoxConstraints(
+      maxHeight: MediaQuery.of(context).size.height * 0.7,
+      minWidth: double.infinity,
+    ),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+    builder: (ctx) {
+      final bottomSafe =
+          MediaQuery.of(ctx).viewPadding.bottom; // Nav-/Task-Bar Höhe
+      final bottomKeyboard =
+          MediaQuery.of(ctx).viewInsets.bottom; // Tastatur
+
+      return Padding(
+        padding: EdgeInsets.only(
+          left: 16, right: 16, top: 12,
+          // ⬇️ immer genug Platz – SafeArea + Tastatur
+          bottom: 16 + bottomSafe + bottomKeyboard,
+        ),
+        child: SingleChildScrollView( // ⬅️ falls es trotzdem knapp wird
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // kleiner "Griff"
               Container(
                 height: 4, width: 40, margin: const EdgeInsets.only(bottom: 8),
                 decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+                  color: Colors.white24, borderRadius: BorderRadius.circular(2)),
               ),
+
               Text(
                 DateFormat('EEEE, dd.MM.yyyy', 'de_DE').format(day),
                 style: const TextStyle(fontWeight: FontWeight.w800),
@@ -92,9 +105,8 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
                 items: <DropdownMenuItem<int?>>[
                   const DropdownMenuItem<int?>(value: null, child: Text('— kein —')),
                   ..._workouts.map((w) => DropdownMenuItem<int?>(
-                    value: w['id'] as int,
-                    child: Text(w['name'] ?? ''),
-                  ))
+                        value: w['id'] as int, child: Text(w['name'] ?? ''),
+                      )),
                 ],
                 onChanged: (v) => selected = v,
               ),
@@ -117,8 +129,8 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 6),
+
               if (_scheduleByYmd[ymd] != null)
                 SizedBox(
                   width: double.infinity,
@@ -134,19 +146,20 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
                 ),
             ],
           ),
-        );
-      },
-    );
+        ),
+      );
+    },
+  );
 
-    if (saved == true) {
-      if (selected == null) {
-        await DB.instance.deleteSchedule(ymd);
-      } else {
-        await DB.instance.upsertSchedule(ymd, selected!);
-      }
-      await _load();
+  if (saved == true) {
+    if (selected == null) {
+      await DB.instance.deleteSchedule(ymd);
+    } else {
+      await DB.instance.upsertSchedule(ymd, selected!);
     }
+    await _load();
   }
+}
 
   Future<void> _startFromDay(DateTime day) async {
     final ymd = _ymd(day);
