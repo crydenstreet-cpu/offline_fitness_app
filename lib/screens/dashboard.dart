@@ -1,6 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:offline_fitness_app/db/database_helper.dart';
 import 'package:offline_fitness_app/ui/design.dart';
@@ -44,9 +43,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const AppScaffold(
-        appBar: AppBar(title: Text('🏁 Dashboard')),
-        body: Center(child: CircularProgressIndicator()),
+      return AppScaffold(
+        appBar: AppBar(title: const Text('🏁 Dashboard')),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -54,7 +53,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final today = DateTime.now();
     final startThis = DateTime(today.year, today.month, today.day).subtract(const Duration(days: 6));
     final startPrev = startThis.subtract(const Duration(days: 7));
-    final endPrev = startThis;
+    final endPrev = startThis.subtract(const Duration(days: 1));
 
     int sumBetween(DateTime a, DateTime b) {
       final fmt = DateFormat('yyyy-MM-dd');
@@ -74,7 +73,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final volThis = sumBetween(startThis, today);
     final volPrev = sumBetween(startPrev, endPrev);
-    final pct = (volPrev == 0) ? 100.0 : ((volThis - volPrev) / volPrev * 100.0);
+    final pct = (volPrev == 0) ? (volThis > 0 ? 100.0 : 0.0) : ((volThis - volPrev) / volPrev * 100.0);
 
     return AppScaffold(
       appBar: AppBar(title: const Text('🏁 Dashboard')),
@@ -88,7 +87,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             subtitle: _nextPlan == null
                 ? 'Kein Termin geplant'
                 : '${_nextPlan!['workout_name']} – ${_nextPlan!['date']}',
-          ).animate().fadeIn(duration: 300.ms).move(begin: const Offset(0, 8)),
+          ),
 
           // Letzte Session
           _CardTile(
@@ -98,14 +97,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ? 'Noch keine Session'
                 : '${DateFormat('dd.MM.yyyy – HH:mm').format(DateTime.parse(_lastSession!['started_at']))}\n'
                   'Sätze: ${_lastSession!['sets_count']}  •  Volumen: ${(_lastSession!['total_volume'] as num?)?.toInt() ?? 0}',
-          ).animate().fadeIn(duration: 350.ms).move(begin: const Offset(0, 8)),
+          ),
 
           // Stimmung der Woche
           _CardTile(
             icon: Icons.mood,
             title: 'Stimmung (Ø letzte 7 Tage)',
             subtitle: (_avgMood == null) ? '—' : _avgMood!.toStringAsFixed(1) + ' / 5',
-          ).animate().fadeIn(duration: 400.ms).move(begin: const Offset(0, 8)),
+          ),
 
           const SizedBox(height: 8),
 
@@ -132,7 +131,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
             ),
-          ).animate().fadeIn(duration: 450.ms).move(begin: const Offset(0, 8)),
+          ),
         ],
       ),
     );
@@ -169,23 +168,23 @@ class _VolumeSparkline extends StatelessWidget {
     }
     final xs = <FlSpot>[];
     int i = 0;
-    int maxV = 0;
+    double maxV = 0;
     for (final r in data) {
       final v = r['volume'];
       final iv = (v is num) ? v.toDouble() : double.tryParse('$v') ?? 0.0;
       xs.add(FlSpot(i.toDouble(), iv));
-      if (iv > maxV) maxV = iv.toInt();
+      if (iv > maxV) maxV = iv;
       i++;
     }
     return LineChart(LineChartData(
-      gridData: FlGridData(show: false),
-      titlesData: FlTitlesData(show: false),
+      gridData: const FlGridData(show: false),
+      titlesData: const FlTitlesData(show: false),
       borderData: FlBorderData(show: false),
       lineBarsData: [
         LineChartBarData(
           isCurved: true,
           spots: xs,
-          dotData: FlDotData(show: false),
+          dotData: const FlDotData(show: false),
           belowBarData: BarAreaData(show: true, applyCutOffY: true),
           barWidth: 3,
         ),
