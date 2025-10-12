@@ -19,7 +19,7 @@ class DB {
 
     return openDatabase(
       path,
-      version: 4, // v4: workout_schedule + planned_* Felder
+      version: 5, // ⬅️ v5: motivation-Feld im Journal
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -93,6 +93,7 @@ class DB {
             mood INTEGER,
             energy INTEGER,
             sleep INTEGER,
+            motivation INTEGER,         -- ⬅️ neu in v5
             linked_session_id INTEGER,
             tags TEXT,
             FOREIGN KEY(linked_session_id) REFERENCES sessions(id) ON DELETE SET NULL
@@ -139,6 +140,14 @@ class DB {
               FOREIGN KEY(workout_id) REFERENCES workouts(id) ON DELETE CASCADE
             );
           ''');
+        }
+        if (oldVersion < 5) {
+          // ⬇️ v5 Migration: motivation-Spalte im Journal
+          final cols = await db.rawQuery('PRAGMA table_info(journal_entries);');
+          final hasMotivation = cols.any((c) => (c['name'] as String?) == 'motivation');
+          if (!hasMotivation) {
+            await db.execute('ALTER TABLE journal_entries ADD COLUMN motivation INTEGER;');
+          }
         }
       },
     );
@@ -283,7 +292,7 @@ class DB {
   }
 
   // -------- JOURNAL --------
-  // Einheitliche Helfer; Datum speichern wir als 'yyyy-MM-dd' (per _ymd).
+  // Einheitliche Helfer; Datum als 'yyyy-MM-dd' per _ymd.
 
   Future<int> insertJournal(
     DateTime date,
@@ -291,6 +300,7 @@ class DB {
     int mood = 3,
     int? energy,
     int? sleep,
+    int? motivation,             // ⬅️ neu
     int? linkedSessionId,
     String? tags,
   }) async {
@@ -301,6 +311,7 @@ class DB {
       'mood': mood,
       'energy': energy,
       'sleep': sleep,
+      'motivation': motivation,  // ⬅️ neu
       'linked_session_id': linkedSessionId,
       'tags': tags,
     });
@@ -313,6 +324,7 @@ class DB {
     int? mood,
     int? energy,
     int? sleep,
+    int? motivation,             // ⬅️ neu
     int? linkedSessionId,
     String? tags,
   }) async {
@@ -323,6 +335,7 @@ class DB {
     if (mood != null) data['mood'] = mood;
     if (energy != null) data['energy'] = energy;
     if (sleep != null) data['sleep'] = sleep;
+    if (motivation != null) data['motivation'] = motivation; // ⬅️ neu
     if (linkedSessionId != null) data['linked_session_id'] = linkedSessionId;
     if (tags != null) data['tags'] = tags;
     if (data.isEmpty) return 0;
@@ -336,7 +349,7 @@ class DB {
 
   Future<List<Map<String, dynamic>>> getJournal({int limit = 200}) async {
     final db = await database;
-    // Alias: text -> note, damit das UI keinen Null-Text sieht
+    // text -> note als Alias
     return db.rawQuery('''
       SELECT
         id,
@@ -345,6 +358,7 @@ class DB {
         mood,
         energy,
         sleep,
+        motivation,            -- ⬅️ neu
         linked_session_id,
         tags
       FROM journal_entries
@@ -466,7 +480,6 @@ class DB {
 
   // -------- DASHBOARD / STATS HELPERS --------
 
-  /// Letzte Session (Datum + grobe Kennzahlen)
   Future<Map<String, dynamic>?> lastSessionSummary() async {
     final db = await database;
     final rows = await db.rawQuery('''
@@ -482,7 +495,6 @@ class DB {
     return rows.isNotEmpty ? rows.first : null;
   }
 
-  /// Nächster geplanter Workout-Termin ab heute
   Future<Map<String, dynamic>?> nextPlannedWorkout() async {
     final db = await database;
     final today = DateTime.now();
@@ -498,7 +510,6 @@ class DB {
     return rows.isNotEmpty ? rows.first : null;
   }
 
-  /// Volumen pro Tag über alle Übungen (letzte N Tage)
   Future<List<Map<String, dynamic>>> volumeByDayAll({int days = 14}) async {
     final db = await database;
     final since = DateTime.now().subtract(Duration(days: days - 1));
@@ -514,7 +525,6 @@ class DB {
     ''', [sinceIso]);
   }
 
-  /// Ø Stimmung der letzten 7 Tage (1..5)
   Future<double?> averageMoodLast7Days() async {
     final db = await database;
     final since = DateTime.now().subtract(const Duration(days: 6));
@@ -530,7 +540,6 @@ class DB {
     return double.tryParse('$v');
   }
 
-  /// Gesamtvolumen in einem Zeitbereich
   Future<int> totalVolumeBetween(DateTime from, DateTime to) async {
     final db = await database;
     final fromIso = from.toIso8601String();
