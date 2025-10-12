@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/date_symbol_data_local.dart'; // Locale-Fix für DateFormat('…','de_DE')
-
-import 'ui/design.dart'; // enthält buildLightTheme / buildDarkTheme / AppScaffold
+import 'package:intl/date_symbol_data_local.dart';
+import 'ui/design.dart';
 
 // Screens
 import 'screens/dashboard.dart';
@@ -14,23 +13,20 @@ import 'screens/calendar_month.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Ohne das crasht DateFormat('…', 'de_DE') in Release häufig.
   await initializeDateFormatting('de_DE');
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Offline Fitness App',
-      // ⚡️ Sportlich-Modernes Theme mit Gradient + Dark/Light
       theme: buildLightTheme(),
       darkTheme: buildDarkTheme(),
-      themeMode: ThemeMode.system, // folgt Geräteeinstellung
+      themeMode: ThemeMode.system,
       home: const _Nav(),
     );
   }
@@ -46,7 +42,7 @@ class _NavState extends State<_Nav> {
   int _index = 0;
 
   final List<Widget> _pages = const [
-    DashboardScreen(),        // 🏁 Startseite
+    DashboardScreen(),       // 🏁 Home
     WorkoutsScreen(),
     ExercisesScreen(),
     StatsScreen(),
@@ -64,12 +60,12 @@ class _NavState extends State<_Nav> {
         currentIndex: _index,
         onTap: (v) => setState(() => _index = v),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Workouts'),
           BottomNavigationBarItem(icon: Icon(Icons.list_alt), label: 'Übungen'),
           BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Statistik'),
           BottomNavigationBarItem(icon: Icon(Icons.book), label: 'Tagebuch'),
-          BottomNavigationBarItem(icon: Icon(Icons.view_week), label: 'Planer'),
+          BottomNavigationBarItem(icon: Icon(Icons.event_note), label: 'Planer'),
           BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: 'Kalender'),
         ],
       ),
