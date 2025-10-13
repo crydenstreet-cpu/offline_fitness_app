@@ -1,21 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:offline_fitness_app/db/database_helper.dart';
-import 'package:offline_fitness_app/screens/sessions.dart';
-import 'package:offline_fitness_app/ui/design.dart';
+import '../db/database_helper.dart';
 
+/// Monatskalender mit Workout-Badges pro Tag.
+/// Zeigt für jedes Datum den geplanten Workout-Namen als kleine „Pille“.
 class CalendarMonthScreen extends StatefulWidget {
   const CalendarMonthScreen({super.key});
+
   @override
   State<CalendarMonthScreen> createState() => _CalendarMonthScreenState();
 }
 
 class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
-  late DateTime _month; // 1. des Monats
-  List<Map<String, dynamic>> _workouts = [];
-  Map<String, Map<String, dynamic>> _scheduleByYmd = {};
+  late DateTime _month; // aktueller Monat (1. des Monats)
+  Map<String, Map<String, dynamic>> _byDate = {}; // yyy-MM-dd -> row
   bool _loading = true;
-  String? _error;
 
   @override
   void initState() {
@@ -25,322 +24,219 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     _load();
   }
 
+  String _ymd(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
   Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
-    try {
-      final from = _month;
-      final to = DateTime(_month.year, _month.month + 1, 0);
-      final ws = await DB.instance.getWorkouts();
-      final sch = await DB.instance.getScheduleBetween(from, to);
-      final map = <String, Map<String, dynamic>>{};
-      for (final row in sch) {
-        map[row['date'] as String] = row;
-      }
-      if (!mounted) return;
-      setState(() {
-        _workouts = ws;
-        _scheduleByYmd = map;
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() { _loading = false; _error = 'Fehler beim Laden: $e'; });
+    setState(() => _loading = true);
+
+    // Sichtbarer Bereich des Monats (inkl. Überhang der ersten/letzten Woche)
+    final firstDayOfMonth = DateTime(_month.year, _month.month, 1);
+    final lastDayOfMonth = DateTime(_month.year, _month.month + 1, 0);
+
+    // auf Wochenraster ausdehnen: Montag = 1 … Sonntag = 7
+    final start = firstDayOfMonth.subtract(Duration(days: firstDayOfMonth.weekday - 1));
+    final end = lastDayOfMonth.add(Duration(days: 7 - lastDayOfMonth.weekday));
+
+    final rows = await DB.instance.getScheduleBetween(start, end);
+    final map = <String, Map<String, dynamic>>{};
+    for (final r in rows) {
+      final d = r['date'] as String;
+      map[d] = r;
     }
+    setState(() {
+      _byDate = map;
+      _loading = false;
+    });
   }
 
-  void _prevMonth() { setState(() => _month = DateTime(_month.year, _month.month - 1, 1)); _load(); }
-  void _nextMonth() { setState(() => _month = DateTime(_month.year, _month.month + 1, 1)); _load(); }
-  void _goToday()   { final n = DateTime.now(); setState(() => _month = DateTime(n.year, n.month, 1)); _load(); }
-
-  Future<void> _editDay(DateTime day) async {
-  final ymd = _ymd(day);
-  int? selected = _scheduleByYmd[ymd]?['workout_id'] as int?;
-
-  final saved = await showModalBottomSheet<bool>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true, // ⬅️ schützt vor Task-/Nav-Bar (Dex, Notch etc.)
-    backgroundColor: Theme.of(context).colorScheme.surface,
-    // ⬇️ Sheet höher machen (70% der Bildschirmhöhe)
-    constraints: BoxConstraints(
-      maxHeight: MediaQuery.of(context).size.height * 0.7,
-      minWidth: double.infinity,
-    ),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
-    builder: (ctx) {
-      final bottomSafe =
-          MediaQuery.of(ctx).viewPadding.bottom; // Nav-/Task-Bar Höhe
-      final bottomKeyboard =
-          MediaQuery.of(ctx).viewInsets.bottom; // Tastatur
-
-      return Padding(
-        padding: EdgeInsets.only(
-          left: 16, right: 16, top: 12,
-          // ⬇️ immer genug Platz – SafeArea + Tastatur
-          bottom: 16 + bottomSafe + bottomKeyboard,
-        ),
-        child: SingleChildScrollView( // ⬅️ falls es trotzdem knapp wird
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // kleiner "Griff"
-              Container(
-                height: 4, width: 40, margin: const EdgeInsets.only(bottom: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white24, borderRadius: BorderRadius.circular(2)),
-              ),
-
-              Text(
-                DateFormat('EEEE, dd.MM.yyyy', 'de_DE').format(day),
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 12),
-
-              DropdownButtonFormField<int?>(
-                value: selected,
-                isExpanded: true,
-                dropdownColor: Theme.of(ctx).colorScheme.surface,
-                decoration: const InputDecoration(labelText: 'Workout zuweisen'),
-                items: <DropdownMenuItem<int?>>[
-                  const DropdownMenuItem<int?>(value: null, child: Text('— kein —')),
-                  ..._workouts.map((w) => DropdownMenuItem<int?>(
-                        value: w['id'] as int, child: Text(w['name'] ?? ''),
-                      )),
-                ],
-                onChanged: (v) => selected = v,
-              ),
-
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Abbrechen'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Speichern'),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-
-              if (_scheduleByYmd[ymd] != null)
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton.icon(
-                    onPressed: () async {
-                      await DB.instance.deleteSchedule(ymd);
-                      if (!mounted) return;
-                      Navigator.pop(ctx, true);
-                    },
-                    icon: const Icon(Icons.delete_outline),
-                    label: const Text('Zuweisung entfernen'),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-
-  if (saved == true) {
-    if (selected == null) {
-      await DB.instance.deleteSchedule(ymd);
-    } else {
-      await DB.instance.upsertSchedule(ymd, selected!);
-    }
-    await _load();
+  void _prevMonth() {
+    setState(() => _month = DateTime(_month.year, _month.month - 1, 1));
+    _load();
   }
-}
 
-  Future<void> _startFromDay(DateTime day) async {
-    final ymd = _ymd(day);
-    final row = _scheduleByYmd[ymd];
-    if (row == null) return;
-    final workoutId = row['workout_id'] as int;
-    final name = (row['workout_name'] ?? 'Workout') as String;
-    final sessionId = await DB.instance.startSession(workoutId: workoutId);
-    if (!mounted) return;
-    Navigator.push(context, MaterialPageRoute(
-      builder: (_) => SessionScreen(
-        sessionId: sessionId,
-        workoutId: workoutId,
-        workoutName: name,
-      ),
-    ));
+  void _nextMonth() {
+    setState(() => _month = DateTime(_month.year, _month.month + 1, 1));
+    _load();
   }
 
   @override
   Widget build(BuildContext context) {
-    final monthTitle = DateFormat('LLLL yyyy', 'de_DE').format(_month);
+    final monthLabel = DateFormat('MMMM yyyy', 'de_DE').format(_month);
 
-    if (_loading) {
-      return AppScaffold(
-        appBar: AppBar(title: const Text('📆 Kalender')),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (_error != null) {
-      return AppScaffold(
-        appBar: AppBar(title: const Text('📆 Kalender')),
-        body: Center(child: Text(_error!, textAlign: TextAlign.center)),
-      );
-    }
-
-    return AppScaffold(
+    return Scaffold(
       appBar: AppBar(
-        title: Text('📆 $monthTitle'),
+        title: Text('Kalender – $monthLabel'),
         actions: [
           IconButton(onPressed: _prevMonth, icon: const Icon(Icons.chevron_left)),
           IconButton(onPressed: _nextMonth, icon: const Icon(Icons.chevron_right)),
-          IconButton(onPressed: _goToday,   icon: const Icon(Icons.today)),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                _weekdayHeader(context),
+                const Divider(height: 1),
+                Expanded(child: _monthGrid(context)),
+              ],
+            ),
+    );
+  }
+
+  Widget _weekdayHeader(BuildContext context) {
+    // Mo–So
+    final names = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+    final style = Theme.of(context).textTheme.labelLarge?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: Theme.of(context).colorScheme.secondary,
+        );
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Row(
+        children: List.generate(7, (i) {
+          return Expanded(
+            child: Center(child: Text(names[i], style: style)),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _monthGrid(BuildContext context) {
+    final firstDayOfMonth = DateTime(_month.year, _month.month, 1);
+    final lastDayOfMonth = DateTime(_month.year, _month.month + 1, 0);
+
+    final start = firstDayOfMonth.subtract(Duration(days: firstDayOfMonth.weekday - 1));
+    final end = lastDayOfMonth.add(Duration(days: 7 - lastDayOfMonth.weekday));
+
+    final days = <DateTime>[];
+    for (DateTime d = start; !d.isAfter(end); d = d.add(const Duration(days: 1))) {
+      days.add(d);
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 7,
+        crossAxisSpacing: 6,
+        mainAxisSpacing: 6,
+      ),
+      itemCount: days.length,
+      itemBuilder: (_, i) => _dayCell(context, days[i], days[i].month == _month.month),
+    );
+  }
+
+  Widget _dayCell(BuildContext context, DateTime day, bool inMonth) {
+    final ymd = _ymd(day);
+    final scheduled = _byDate[ymd]; // {date, workout_id, workout_name}
+    final isToday = _ymd(DateTime.now()) == ymd;
+
+    final scheme = Theme.of(context).colorScheme;
+
+    return InkWell(
+      onTap: () {
+        // Optional: zur Plan-Liste für diesen Tag springen
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => _PlanForDayScreen(date: day)),
+        );
+      },
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          color: inMonth ? scheme.surface : scheme.surfaceVariant.withOpacity(0.4),
+          border: Border.all(
+            color: isToday ? scheme.primary : Colors.transparent,
+            width: isToday ? 2 : 1,
+          ),
+        ),
+        padding: const EdgeInsets.all(6),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _WeekdayHeader(),
-            const SizedBox(height: 6),
-            Expanded(child: MonthGrid(
-              month: _month,
-              scheduleByYmd: _scheduleByYmd,
-              onEditDay: _editDay,
-              onStartDay: _startFromDay,
-            )),
+            // Datum oben links
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isToday ? scheme.primary.withOpacity(0.15) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '${day.day}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: inMonth ? scheme.onSurface : scheme.onSurface.withOpacity(0.5),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const Spacer(),
+            if (scheduled != null) _workoutPill(context, scheduled['workout_name'] as String),
           ],
         ),
       ),
     );
   }
 
-  String _ymd(DateTime d) =>
-      '${d.year.toString().padLeft(4,'0')}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
-}
-
-class _WeekdayHeader extends StatelessWidget {
-  const _WeekdayHeader({super.key});
-  @override
-  Widget build(BuildContext context) {
-    const labels = ['Mo','Di','Mi','Do','Fr','Sa','So'];
-    return Row(
-      children: labels.map((l) => Expanded(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Center(child: Text(l, style: const TextStyle(fontWeight: FontWeight.w700))),
-        ),
-      )).toList(),
-    );
-  }
-}
-
-class MonthGrid extends StatelessWidget {
-  final DateTime month; // 1st of month
-  final Map<String, Map<String, dynamic>> scheduleByYmd;
-  final Future<void> Function(DateTime day) onEditDay;
-  final Future<void> Function(DateTime day) onStartDay;
-
-  const MonthGrid({
-    super.key,
-    required this.month,
-    required this.scheduleByYmd,
-    required this.onEditDay,
-    required this.onStartDay,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final first = month;
-    final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
-    final leading = first.weekday - 1; // 0..6 (Mo=1)
-    final totalCells = ((leading + daysInMonth) / 7).ceil() * 7;
-
-    final today = DateTime.now();
-    final isTodayMonth = (today.year == month.year && today.month == month.month);
-
-    return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 7, crossAxisSpacing: 6, mainAxisSpacing: 6,
-      ),
-      itemCount: totalCells,
-      itemBuilder: (context, idx) {
-        final dayNum = idx - leading + 1;
-        if (dayNum < 1 || dayNum > daysInMonth) return const SizedBox.shrink();
-
-        final day = DateTime(month.year, month.month, dayNum);
-        final ymd = _ymd(day);
-        final planned = scheduleByYmd[ymd];
-        final name = planned?['workout_name'] as String?;
-        final hasPlan = planned != null;
-
-        final isToday = isTodayMonth && (day.day == today.day);
-        final border = isToday
-          ? Border.all(color: Theme.of(context).colorScheme.primary, width: 1.2)
-          : Border.all(color: Colors.white12);
-
-        return InkWell(
+  Widget _workoutPill(BuildContext context, String name) {
+    final scheme = Theme.of(context).colorScheme;
+    return Align(
+      alignment: Alignment.bottomLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: scheme.primary.withOpacity(0.15),
+          border: Border.all(color: scheme.primary),
           borderRadius: BorderRadius.circular(14),
-          onTap: () => onEditDay(day),
-          onLongPress: hasPlan ? () => onStartDay(day) : null,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: border,
-            ),
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$dayNum',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: hasPlan ? Theme.of(context).colorScheme.primary : null,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                if (hasPlan)
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.topLeft,
-                      child: Text(
-                        name ?? 'Workout',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  )
-                else
-                  const Expanded(
-                    child: Align(
-                      alignment: Alignment.topLeft,
-                      child: Text('—', style: TextStyle(fontSize: 12, color: Colors.white38)),
-                    ),
-                  ),
-                if (hasPlan)
-                  Align(
-                    alignment: Alignment.bottomRight,
-                    child: Icon(Icons.play_arrow, size: 18, color: Theme.of(context).colorScheme.secondary),
-                  ),
-              ],
-            ),
+        ),
+        child: Text(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: scheme.primary,
           ),
-        );
-      },
+        ),
+      ),
     );
   }
+}
+
+/// Kleiner Tages-Screen, zeigt den Plan für ein Datum (so bleibt der Flow gewohnt).
+class _PlanForDayScreen extends StatelessWidget {
+  final DateTime date;
+  const _PlanForDayScreen({required this.date, super.key});
 
   String _ymd(DateTime d) =>
-      '${d.year.toString().padLeft(4,'0')}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    final ymd = _ymd(date);
+    return Scaffold(
+      appBar: AppBar(title: Text(DateFormat('EEEE, d. MMMM', 'de_DE').format(date))),
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: DB.instance.getScheduleBetween(date, date),
+        builder: (context, snap) {
+          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+          final items = snap.data!;
+          if (items.isEmpty) {
+            return const Center(child: Text('Kein Training geplant.'));
+          }
+          final row = items.first;
+          return ListTile(
+            leading: const Icon(Icons.fitness_center),
+            title: Text(row['workout_name']?.toString() ?? 'Workout'),
+            subtitle: Text('Geplant für $ymd'),
+          );
+        },
+      ),
+    );
+  }
 }
