@@ -1,33 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:provider/provider.dart';
 
-import 'theme/theme_controller.dart'; // enthält buildLightTheme / buildDarkTheme
-
-// Screens
+import 'theme/theme_controller.dart';
 import 'screens/dashboard.dart';
-import 'screens/plan_hub.dart';      // Tab-Container: Kalender + Planer
+import 'screens/plan_hub.dart';
 import 'screens/workouts.dart';
 import 'screens/exercises.dart';
 import 'screens/stats.dart';
 import 'screens/journal.dart';
+import 'screens/settings.dart'; // neu
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('de_DE');
-  runApp(const MyApp());
+  final themeController = await ThemeController.init();
+  runApp(ChangeNotifierProvider.value(
+    value: themeController,
+    child: const MyApp(),
+  ));
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
+    final theme = Provider.of<ThemeController>(context);
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Offline Fitness App',
-      theme: buildLightTheme(),       // helles Theme
-      darkTheme: buildDarkTheme(),    // dunkles Theme
-      themeMode: ThemeMode.system,    // System folgt (in Einstellungen umschaltbar, wenn du willst)
-      home: const _NavWithDrawer(),   // Drawer-Navigation
+      theme: buildLightTheme(),
+      darkTheme: buildDarkTheme(),
+      themeMode: theme.mode,
+      home: const _NavWithDrawer(),
     );
   }
 }
@@ -42,12 +48,12 @@ class _NavWithDrawerState extends State<_NavWithDrawer> {
   int _index = 0;
 
   final _pages = const <Widget>[
-    DashboardScreen(),   // 🏁 Home
-    PlanHubScreen(),     // 🗓️ Kalender + Wochen-Planer (mit Tabs)
-    WorkoutsScreen(),    // 💪 Workouts
-    ExercisesScreen(),   // 📋 Übungen
-    StatsScreen(),       // 📈 Stats
-    JournalScreen(),     // 📔 Tagebuch
+    DashboardScreen(),
+    PlanHubScreen(),
+    WorkoutsScreen(),
+    ExercisesScreen(),
+    StatsScreen(),
+    JournalScreen(),
   ];
 
   String get _title {
@@ -64,7 +70,7 @@ class _NavWithDrawerState extends State<_NavWithDrawer> {
 
   void _go(int i) {
     setState(() => _index = i);
-    Navigator.of(context).maybePop(); // evtl. offene Routen schließen
+    Navigator.of(context).maybePop();
   }
 
   @override
@@ -80,7 +86,7 @@ class _NavWithDrawerState extends State<_NavWithDrawer> {
 class _AppDrawer extends StatelessWidget {
   final int selected;
   final ValueChanged<int> onSelect;
-  const _AppDrawer({required this.selected, required this.onSelect, super.key});
+  const _AppDrawer({required this.selected, required this.onSelect});
 
   @override
   Widget build(BuildContext context) {
@@ -94,7 +100,7 @@ class _AppDrawer extends StatelessWidget {
           leading: Icon(icon),
           title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
           onTap: () {
-            Navigator.pop(context); // Drawer schließen
+            Navigator.pop(context);
             onSelect(idx);
           },
         ),
@@ -112,18 +118,24 @@ class _AppDrawer extends StatelessWidget {
               trailing: IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () => Navigator.pop(context),
-                tooltip: 'Menü schließen',
               ),
             ),
             const Divider(),
-            item(icon: Icons.home,             label: 'Home',     idx: 0),
-            item(icon: Icons.event_note,       label: 'Plan',     idx: 1),
-            item(icon: Icons.fitness_center,   label: 'Workouts', idx: 2),
-            item(icon: Icons.list_alt,         label: 'Übungen',  idx: 3),
-            item(icon: Icons.bar_chart,        label: 'Stats',    idx: 4),
-            item(icon: Icons.book,             label: 'Tagebuch', idx: 5),
+            item(icon: Icons.home, label: 'Home', idx: 0),
+            item(icon: Icons.event_note, label: 'Plan', idx: 1),
+            item(icon: Icons.fitness_center, label: 'Workouts', idx: 2),
+            item(icon: Icons.list_alt, label: 'Übungen', idx: 3),
+            item(icon: Icons.bar_chart, label: 'Stats', idx: 4),
+            item(icon: Icons.book, label: 'Tagebuch', idx: 5),
             const Divider(),
-            // Platz für weitere Punkte wie Einstellungen/Backup/Über usw.
+            ListTile(
+              leading: const Icon(Icons.settings),
+              title: const Text('Einstellungen'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+              },
+            ),
           ],
         ),
       ),
