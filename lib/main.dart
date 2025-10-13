@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-import 'ui/design.dart';
+import 'ui/design.dart';            // enthält buildLightTheme / buildDarkTheme / AppScaffold
 
 import 'screens/dashboard.dart';
 import 'screens/plan_hub.dart';      // Tab-Container: Kalender + Planer
@@ -23,8 +23,13 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Offline Fitness App',
-      theme: buildAppTheme(),            // dein bestehendes Theme
-      home: const _NavWithDrawer(),      // ⬅️ Drawer-Navigation
+
+      // ✅ Neues Design-System aktiv
+      theme: buildLightTheme(),
+      darkTheme: buildDarkTheme(),
+      themeMode: ThemeMode.system,
+
+      home: const _NavWithDrawer(),
     );
   }
 }
@@ -67,15 +72,10 @@ class _NavWithDrawerState extends State<_NavWithDrawer> {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      appBar: AppBar(
-        title: Text(_title),
-      ),
-      drawer: _AppDrawer(
-        selected: _index,
-        onSelect: _go,
-      ),
+      appBar: AppBar(title: Text(_title)),
+      drawer: _AppDrawer(selected: _index, onSelect: _go),
       body: _pages[_index],
-      // Optional: wichtigste Aktion als FAB – hier Beispiel: auf Home neuer Tagebuch-Eintrag
+      // Optional: wichtigste Aktion als FAB – Beispiel:
       // fab: FloatingActionButton(
       //   onPressed: () {
       //     if (_index == 0) {
@@ -117,7 +117,7 @@ class _AppDrawer extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.symmetric(vertical: 8),
           children: [
-            // Optionaler Kopf
+            // Kopfbereich
             ListTile(
               title: const Text('Offline Fitness App', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
               subtitle: const Text('Alles an einem Ort'),
@@ -129,12 +129,12 @@ class _AppDrawer extends StatelessWidget {
             ),
             const Divider(),
 
-            item(icon: Icons.home,             label: 'Home',     idx: 0),
-            item(icon: Icons.event_note,       label: 'Plan',     idx: 1),
-            item(icon: Icons.fitness_center,   label: 'Workouts', idx: 2),
-            item(icon: Icons.list_alt,         label: 'Übungen',  idx: 3),
-            item(icon: Icons.bar_chart,        label: 'Stats',    idx: 4),
-            item(icon: Icons.book,             label: 'Tagebuch', idx: 5),
+            item(icon: Icons.home,           label: 'Home',     idx: 0),
+            item(icon: Icons.event_note,     label: 'Plan',     idx: 1),
+            item(icon: Icons.fitness_center, label: 'Workouts', idx: 2),
+            item(icon: Icons.list_alt,       label: 'Übungen',  idx: 3),
+            item(icon: Icons.bar_chart,      label: 'Stats',    idx: 4),
+            item(icon: Icons.book,           label: 'Tagebuch', idx: 5),
 
             const Divider(),
             // Platz für später: Einstellungen, Backup/Restore, Über
