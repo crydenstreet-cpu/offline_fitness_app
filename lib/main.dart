@@ -11,12 +11,15 @@ import 'screens/workouts.dart';
 import 'screens/exercises.dart';
 import 'screens/stats.dart';
 import 'screens/journal.dart';
+import 'screens/settings.dart'; // <-- Einstellungen-Screen
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('de_DE');
 
-  final themeController = await ThemeController.init(); // <-- lädt gespeicherte Wahl
+  // ThemeController laden (speichert Wahl via SharedPreferences)
+  final themeController = await ThemeController.init();
+
   runApp(
     ChangeNotifierProvider.value(
       value: themeController,
@@ -33,9 +36,9 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Offline Fitness App',
-      theme: theme.lightTheme,
-      darkTheme: theme.darkTheme,
-      themeMode: theme.mode, // System / Hell / Dunkel
+      theme: theme.lightTheme,     // hell
+      darkTheme: theme.darkTheme,  // dunkel
+      themeMode: theme.mode,       // <-- GANZ WICHTIG
       home: const _NavWithDrawer(),
     );
   }
@@ -78,8 +81,35 @@ class _NavWithDrawerState extends State<_NavWithDrawer> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Provider.of<ThemeController>(context, listen: false);
+
     return AppScaffold(
-      appBar: AppBar(title: Text(_title)),
+      appBar: AppBar(
+        title: Text(_title),
+        actions: [
+          // Schneller Theme-Toggle rechts oben (Zyklus: System -> Hell -> Dunkel)
+          IconButton(
+            tooltip: 'Theme wechseln',
+            onPressed: () {
+              final next = {
+                ThemeMode.system: ThemeMode.light,
+                ThemeMode.light: ThemeMode.dark,
+                ThemeMode.dark: ThemeMode.system,
+              }[theme.mode]!;
+              theme.setMode(next);
+            },
+            icon: Builder(
+              builder: (_) {
+                switch (theme.mode) {
+                  case ThemeMode.system: return const Icon(Icons.brightness_auto);
+                  case ThemeMode.light:  return const Icon(Icons.light_mode);
+                  case ThemeMode.dark:   return const Icon(Icons.dark_mode);
+                }
+              },
+            ),
+          ),
+        ],
+      ),
       drawer: _AppDrawer(selected: _index, onSelect: _go),
       body: _pages[_index],
     );
@@ -131,15 +161,15 @@ class _AppDrawer extends StatelessWidget {
             item(icon: Icons.bar_chart,      label: 'Stats',    idx: 4),
             item(icon: Icons.book,           label: 'Tagebuch', idx: 5),
             const Divider(),
-            // Hier könntest du "Einstellungen" hinzufügen, wenn du schon einen Screen hast:
-            // ListTile(
-            //   leading: const Icon(Icons.settings),
-            //   title: const Text('Einstellungen'),
-            //   onTap: () {
-            //     Navigator.pop(context);
-            //     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
-            //   },
-            // ),
+            // Einstellungen-Link (öffnet Screen)
+            ListTile(
+              leading: const Icon(Icons.settings),
+              title: const Text('Einstellungen'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
+              },
+            ),
           ],
         ),
       ),
