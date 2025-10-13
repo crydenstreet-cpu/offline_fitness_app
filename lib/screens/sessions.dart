@@ -1,3 +1,4 @@
+// lib/screens/sessions.dart
 import 'package:flutter/material.dart';
 import 'package:offline_fitness_app/db/database_helper.dart';
 import 'package:offline_fitness_app/ui/design.dart';
@@ -6,7 +7,6 @@ class SessionScreen extends StatefulWidget {
   final int sessionId;
   final int workoutId;
   final String workoutName;
-
   const SessionScreen({
     super.key,
     required this.sessionId,
@@ -29,9 +29,8 @@ class _SessionScreenState extends State<SessionScreen> {
   }
 
   Future<void> _reload() async {
-    final exs = await DB.instance.getExercisesOfWorkout(widget.workoutId); // enthält planned_* + exercise-Felder
+    final exs = await DB.instance.getExercisesOfWorkout(widget.workoutId); // planned_* + exercise-Felder
     final sets = await DB.instance.getSetsOfSession(widget.sessionId);
-    if (!mounted) return;
     setState(() {
       _workoutExercises = exs;
       _sets = sets;
@@ -39,24 +38,35 @@ class _SessionScreenState extends State<SessionScreen> {
   }
 
   List<Map<String, dynamic>> _setsForExercise(int exerciseId) {
-    return _sets
-        .where((s) => (s['exercise_id'] as int) == exerciseId)
-        .toList()
-      ..sort((a, b) => (a['set_index'] as int).compareTo(b['set_index'] as int));
+    final list = _sets.where((s) => (s['exercise_id'] as int) == exerciseId).toList();
+    list.sort((a, b) => (a['set_index'] as int).compareTo(b['set_index'] as int));
+    return list;
   }
 
+  // ---------- Satz anlegen ----------
   Future<void> _addSetDialog(Map<String, dynamic> ex) async {
     final exerciseId = ex['id'] as int;
     final unit = (ex['unit'] ?? 'kg').toString();
 
-    // Prefill: geplantes Gewicht -> sonst letztes Gewicht -> 0
-    final lastW = await DB.instance.lastWeightForExercise(exerciseId);
-    final prefillReps = (ex['planned_reps'] ?? ex['default_reps'] ?? 10).toString();
-    final prefillWeight =
-        ((ex['planned_weight'] as num?)?.toDouble() ?? lastW ?? 0).toString();
+    // 1) letzter echter Satz in dieser Session
+    final lastInThisSession = await DB.instance.lastSetForExerciseInSession(widget.sessionId, exerciseId);
 
-    final repsCtrl = TextEditingController(text: prefillReps);
-    final weightCtrl = TextEditingController(text: prefillWeight);
+    // 2) Historie (letztes Gewicht aller Sessions)
+    final lastHistoricalW = await DB.instance.lastWeightForExercise(exerciseId);
+
+    // 3) Plan-Defaults
+    final planReps = ex['planned_reps'] ?? ex['default_reps'] ?? 10;
+    final planWeight = (ex['planned_weight'] as num?)?.toDouble();
+
+    // Vorbelegung: Session > Historie > Plan
+    final prefillReps = (lastInThisSession?['reps'] as int?) ?? planReps;
+    final prefillWeight = (lastInThisSession?['weight'] as num?)?.toDouble()
+        ?? lastHistoricalW
+        ?? planWeight
+        ?? 0.0;
+
+    final repsCtrl = TextEditingController(text: prefillReps.toString());
+    final weightCtrl = TextEditingController(text: prefillWeight.toString());
 
     final saved = await showDialog<bool>(
       context: context,
@@ -73,33 +83,24 @@ class _SessionScreenState extends State<SessionScreen> {
             const SizedBox(height: 8),
             TextField(
               controller: weightCtrl,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: InputDecoration(labelText: 'Gewicht ($unit)'),
             ),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Abbrechen'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Speichern'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Speichern')),
         ],
       ),
     );
 
     if (saved == true) {
-      final reps = int.tryParse(repsCtrl.text.trim()) ?? 0;
-      final weight =
-          double.tryParse(weightCtrl.text.trim().replaceAll(',', '.')) ?? 0.0;
+      final reps = int.tryParse(repsCtrl.text.trim()) ?? prefillReps;
+      final weight = double.tryParse(weightCtrl.text.trim().replaceAll(',', '.')) ?? prefillWeight;
 
       final existing = _setsForExercise(exerciseId);
-      final nextIndex =
-          (existing.isEmpty ? 1 : ((existing.last['set_index'] as int) + 1));
+      final nextIndex = (existing.isEmpty ? 1 : ((existing.last['set_index'] as int) + 1));
 
       await DB.instance.insertSet(
         sessionId: widget.sessionId,
@@ -112,6 +113,62 @@ class _SessionScreenState extends State<SessionScreen> {
     }
   }
 
+  // ---------- Satz bearbeiten ----------
+  Future<void> _editSetDialog(Map<String, dynamic> setRow, Map<String, dynamic> ex) async {
+    final unit = (ex['unit'] ?? 'kg').toString();
+    final repsCtrl = TextEditingController(text: (setRow['reps'] ?? '').toString());
+    final weightCtrl = TextEditingController(text: (setRow['weight'] ?? '').toString());
+    final noteCtrl = TextEditingController(text: (setRow['note'] ?? '').toString());
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Satz ${setRow['set_index']} bearbeiten'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: repsCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Wiederholungen'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: weightCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(labelText: 'Gewicht ($unit)'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: noteCtrl,
+              decoration: const InputDecoration(labelText: 'Notiz (optional)'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'delete'),
+            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+            child: const Text('Löschen'),
+          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, 'cancel'), child: const Text('Abbrechen')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, 'save'), child: const Text('Speichern')),
+        ],
+      ),
+    );
+
+    if (result == 'save') {
+      final reps = int.tryParse(repsCtrl.text.trim());
+      final weight = double.tryParse(weightCtrl.text.trim().replaceAll(',', '.'));
+      await DB.instance.updateSet(setRow['id'] as int, reps: reps, weight: weight, note: noteCtrl.text.trim());
+      await _reload();
+    } else if (result == 'delete') {
+      await DB.instance.deleteSet(setRow['id'] as int);
+      await _reload();
+    }
+  }
+
+  // ---------- UI ----------
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
@@ -128,20 +185,25 @@ class _SessionScreenState extends State<SessionScreen> {
                 final unit = (e['unit'] ?? 'kg').toString();
                 final planSets = e['planned_sets'] ?? e['default_sets'];
                 final planReps = e['planned_reps'] ?? e['default_reps'];
-                final startW = (e['planned_weight'] as num?)?.toDouble();
+                final planWeight = (e['planned_weight'] as num?)?.toDouble();
+
+                final planText = StringBuffer('Plan: ');
+                planText.write('${planSets ?? '-'} Sätze × ${planReps ?? '-'} Wdh');
+                if (planWeight != null) {
+                  planText.write(' (Start: ${_fmt(planWeight)} $unit)');
+                }
 
                 return Card(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Kopf mit Plan-Info + +Satz-Button
                       ListTile(
                         title: Text(
                           e['name'] ?? '',
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.w800),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                         ),
-                        subtitle: Text(_buildPlanText(
-                            planSets, planReps, startW, unit)),
+                        subtitle: Text(planText.toString()),
                         trailing: OutlinedButton.icon(
                           onPressed: () => _addSetDialog(e),
                           icon: const Icon(Icons.add),
@@ -149,22 +211,51 @@ class _SessionScreenState extends State<SessionScreen> {
                         ),
                       ),
                       const Divider(height: 1),
+
                       if (exSets.isEmpty)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
                           child: Text(
-                            'Noch keine Sätze. Tippe auf „Satz“ – '
-                            'Wiederholungen & Gewicht sind aus dem Plan oder deinem letzten Satz vorausgefüllt.',
+                            'Noch keine Sätze. Tippe auf „Satz“, Werte sind aus deinem letzten Satz (oder Plan) vorausgefüllt.',
                           ),
                         ),
+
                       if (exSets.isNotEmpty)
-                        ...exSets.map(
-                          (s) => _buildSetTile(
-                            s,
-                            unit: unit,
-                            plannedStart: startW,
-                          ),
-                        ),
+                        ...exSets.map((s) {
+                          final idx = s['set_index'] as int;
+                          final reps = s['reps'];
+                          final weight = s['weight'];
+                          final startPart = (planWeight != null) ? ' • Start: ${_fmt(planWeight)} $unit' : '';
+
+                          return ListTile(
+                            onLongPress: () => _editSetDialog(s, e),
+                            leading: CircleAvatar(
+                              backgroundColor: Theme.of(context).colorScheme.primary,
+                              foregroundColor: Colors.black,
+                              child: Text('$idx'),
+                            ),
+                            title: Text('Satz $idx'),
+                            subtitle: Text('${reps ?? '-'} Wdh – ${_fmt(weight)} $unit$startPart'),
+                            trailing: PopupMenuButton<String>(
+                              onSelected: (v) async {
+                                if (v == 'edit') {
+                                  await _editSetDialog(s, e);
+                                } else if (v == 'delete') {
+                                  await DB.instance.deleteSet(s['id'] as int);
+                                  await _reload();
+                                }
+                              },
+                              itemBuilder: (ctx) => [
+                                const PopupMenuItem(value: 'edit', child: Text('Bearbeiten')),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Text('Löschen'),
+                                ),
+                              ],
+                              icon: const Icon(Icons.more_vert),
+                            ),
+                          );
+                        }),
                     ],
                   ),
                 );
@@ -173,45 +264,9 @@ class _SessionScreenState extends State<SessionScreen> {
     );
   }
 
-  // --- UI Helfer -------------------------------------------------------------
-
-  String _buildPlanText(Object? sets, Object? reps, double? startW, String unit) {
-    final parts = <String>[];
-    parts.add('${sets ?? '-'} Sätze × ${reps ?? '-'} Wdh');
-    if (startW != null) parts.add('(Startgewicht: ${_fmt(startW)} $unit)');
-    return 'Plan: ${parts.join(' ')}';
-  }
-
-  Widget _buildSetTile(
-    Map<String, dynamic> s, {
-    required String unit,
-    double? plannedStart,
-  }) {
-    final idx = s['set_index'] as int? ?? 0;
-    final reps = s['reps'] as int? ?? 0;
-    final weight = (s['weight'] as num?)?.toDouble() ?? 0.0;
-
-    final subtitle = [
-      '${reps} × ${ _fmt(weight)} $unit',
-      if (plannedStart != null) '(Startgewicht: ${_fmt(plannedStart)} $unit)',
-    ].join('  ');
-
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: Colors.deepPurple, // lila
-        child: Text(
-          'S$idx',
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-        ),
-      ),
-      title: Text(subtitle),
-    );
-  }
-
   String _fmt(Object? n) {
     if (n == null) return '-';
     final d = (n is num) ? n.toDouble() : double.tryParse('$n') ?? 0;
     return d.toStringAsFixed(d.truncateToDouble() == d ? 0 : 2);
-    // z.B. 20 -> "20", 20.5 -> "20.5"
   }
 }
