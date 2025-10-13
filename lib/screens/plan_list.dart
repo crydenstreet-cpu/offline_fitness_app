@@ -36,7 +36,9 @@ class _PlanListScreenState extends State<PlanListScreen> {
         final sets = e['planned_sets'] ?? e['default_sets'];
         final name = (e['name'] ?? '') as String;
         if (sets != null) {
-          lines.add('${sets}x $name');
+          final reps = e['planned_reps'] ?? e['default_reps'];
+          lines.add(reps != null ? '${sets}x$reps  $name' : '${sets}x $name');
+
         } else {
           lines.add(name);
         }
