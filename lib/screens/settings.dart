@@ -7,31 +7,30 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeController = Provider.of<ThemeController>(context);
-    final current = themeController.mode;
+    final theme = Provider.of<ThemeController>(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('⚙️ Einstellungen')),
+      appBar: AppBar(title: const Text('Einstellungen')),
       body: ListView(
         children: [
-          const ListTile(title: Text('Darstellung', style: TextStyle(fontWeight: FontWeight.bold))),
+          const ListTile(title: Text('Darstellung')),
           RadioListTile<ThemeMode>(
-            title: const Text('Systemstandard'),
+            title: const Text('System'),
             value: ThemeMode.system,
-            groupValue: current,
-            onChanged: themeController.setMode,
+            groupValue: theme.mode,
+            onChanged: (v) => theme.setMode(v ?? ThemeMode.system),
           ),
           RadioListTile<ThemeMode>(
             title: const Text('Hell'),
             value: ThemeMode.light,
-            groupValue: current,
-            onChanged: themeController.setMode,
+            groupValue: theme.mode,
+            onChanged: (v) => theme.setMode(v ?? ThemeMode.light),
           ),
           RadioListTile<ThemeMode>(
             title: const Text('Dunkel'),
             value: ThemeMode.dark,
-            groupValue: current,
-            onChanged: themeController.setMode,
+            groupValue: theme.mode,
+            onChanged: (v) => theme.setMode(v ?? ThemeMode.dark),
           ),
         ],
       ),
