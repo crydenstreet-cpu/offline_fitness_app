@@ -30,21 +30,36 @@ class AppColors {
 
   // ===== Backwards-Compat Aliase (für bestehenden Code) =====
   static const Color primary = red;            // wurde in alten Screens genutzt
-  static const Color surface2 = lightSurface2; // neutrale helle Fläche (z. B. CircleAvatar)
+  static const Color surface2 = lightSurface2; // z. B. für CircleAvatar
   static const Color text = textLight;         // Standard-Textfarbe (Light)
 }
+
+/// Marker-Extension um hell/dunkel für den Gradient zu erkennen
+class _AppThemeX extends ThemeExtension<_AppThemeX> {
+  final bool light;
+  const _AppThemeX({required this.light});
+
+  @override
+  _AppThemeX copyWith({bool? light}) => _AppThemeX(light: light ?? this.light);
+
+  @override
+  _AppThemeX lerp(ThemeExtension<_AppThemeX>? other, double t) => this;
+}
+
+bool _isLight(BuildContext context) =>
+    Theme.of(context).extension<_AppThemeX>()?.light ?? true;
 
 /// ----------------------------------------------------
 /// THEME (Material 3, kräftiger Rot-Akzent)
 /// ----------------------------------------------------
-ThemeData buildAppTheme() {
+ThemeData buildLightTheme() {
   final base = ThemeData(
     useMaterial3: true,
     visualDensity: VisualDensity.standard,
+    brightness: Brightness.light,
   );
 
-  // Light
-  final lightScheme = ColorScheme.light(
+  final scheme = ColorScheme.light(
     primary: AppColors.red,
     onPrimary: Colors.white,
     secondary: Colors.black87,
@@ -55,21 +70,8 @@ ThemeData buildAppTheme() {
     onBackground: AppColors.textLight,
   );
 
-  // Dark
-  final darkScheme = ColorScheme.dark(
-    primary: AppColors.red,
-    onPrimary: Colors.white,
-    secondary: AppColors.textDarkMuted,
-    onSecondary: Colors.white,
-    surface: AppColors.darkSurface,
-    onSurface: AppColors.textDark,
-    background: AppColors.darkBgBottom,
-    onBackground: AppColors.textDark,
-  );
-
-  // ---- Light ThemeData ----
-  final lightTheme = base.copyWith(
-    colorScheme: lightScheme,
+  return base.copyWith(
+    colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.lightBgBottom,
     appBarTheme: const AppBarTheme(
       centerTitle: false,
@@ -96,17 +98,32 @@ ThemeData buildAppTheme() {
       bodyColor: AppColors.textLight,
       displayColor: AppColors.textLight,
     ),
-    brightness: Brightness.light,
     extensions: const <ThemeExtension<dynamic>>[
-      _AppThemeX(
-        light: true,
-      ),
+      _AppThemeX(light: true),
     ],
   );
+}
 
-  // ---- Dark ThemeData ----
-  final darkTheme = base.copyWith(
-    colorScheme: darkScheme,
+ThemeData buildDarkTheme() {
+  final base = ThemeData(
+    useMaterial3: true,
+    visualDensity: VisualDensity.standard,
+    brightness: Brightness.dark,
+  );
+
+  final scheme = ColorScheme.dark(
+    primary: AppColors.red,
+    onPrimary: Colors.white,
+    secondary: AppColors.textDarkMuted,
+    onSecondary: Colors.white,
+    surface: AppColors.darkSurface,
+    onSurface: AppColors.textDark,
+    background: AppColors.darkBgBottom,
+    onBackground: AppColors.textDark,
+  );
+
+  return base.copyWith(
+    colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.darkBgBottom,
     appBarTheme: const AppBarTheme(
       centerTitle: false,
@@ -133,35 +150,14 @@ ThemeData buildAppTheme() {
       bodyColor: AppColors.textDark,
       displayColor: AppColors.textDark,
     ),
-    brightness: Brightness.dark,
     extensions: const <ThemeExtension<dynamic>>[
-      _AppThemeX(
-        light: false,
-      ),
+      _AppThemeX(light: false),
     ],
   );
-
-  // Wir liefern nur ein Theme raus – MaterialApp kann via systemBrightness
-  // automatisch Dark/Light wählen, wenn du zusätzlich darkTheme setzt.
-  // Du nutzt aktuell nur theme:, daher geben wir hier das Light zurück.
-  // (Dein main.dart kann optional darkTheme: buildDarkTheme() setzen)
-  return lightTheme;
 }
 
-/// Marker-Extension um hell/dunkel für den Gradient zu erkennen
-class _AppThemeX extends ThemeExtension<_AppThemeX> {
-  final bool light;
-  const _AppThemeX({required this.light});
-
-  @override
-  _AppThemeX copyWith({bool? light}) => _AppThemeX(light: light ?? this.light);
-
-  @override
-  _AppThemeX lerp(ThemeExtension<_AppThemeX>? other, double t) => this;
-}
-
-bool _isLight(BuildContext context) =>
-    Theme.of(context).extension<_AppThemeX>()?.light ?? true;
+/// Falls irgendwo noch buildAppTheme() genutzt wird, liefern wir das Light Theme.
+ThemeData buildAppTheme() => buildLightTheme();
 
 /// ------------------------------------
 /// Hintergrund mit leichtem Verlauf
@@ -190,7 +186,7 @@ class GradientBackground extends StatelessWidget {
 }
 
 /// ------------------------------------
-/// AppScaffold – jetzt MIT drawer: ...
+/// AppScaffold – MIT optionalem drawer
 /// ------------------------------------
 class AppScaffold extends StatelessWidget {
   final PreferredSizeWidget? appBar;
@@ -221,7 +217,7 @@ class AppScaffold extends StatelessWidget {
 }
 
 /// ------------------------------------
-/// Flat-Card (bestehende Komponente)
+/// Flat-Card
 /// ------------------------------------
 class AppCard extends StatelessWidget {
   final Widget child;
