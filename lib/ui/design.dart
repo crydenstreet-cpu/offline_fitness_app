@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 /// -------------------------------
 /// Farben (Grau/Schwarz/Rot-Stil)
+/// + Backwards-Compat Aliase (primary, surface2, text)
 /// -------------------------------
 class AppColors {
   // Akzent
@@ -26,10 +27,15 @@ class AppColors {
   static const Color textDarkMuted = Color(0xFFB7BDCA);
   static const Color textLight = Color(0xFF101318);
   static const Color textLightMuted = Color(0xFF5E6676);
+
+  // ===== Backwards-Compat Aliase (für bestehenden Code) =====
+  static const Color primary = red;            // wurde in alten Screens genutzt
+  static const Color surface2 = lightSurface2; // neutrale helle Fläche (z. B. CircleAvatar)
+  static const Color text = textLight;         // Standard-Textfarbe (Light)
 }
 
 /// ----------------------------------------------------
-/// THEME (einheitlich, Material 3, fette Akzentfarbe Rot)
+/// THEME (Material 3, kräftiger Rot-Akzent)
 /// ----------------------------------------------------
 ThemeData buildAppTheme() {
   final base = ThemeData(
@@ -61,7 +67,8 @@ ThemeData buildAppTheme() {
     onBackground: AppColors.textDark,
   );
 
-  return base.copyWith(
+  // ---- Light ThemeData ----
+  final lightTheme = base.copyWith(
     colorScheme: lightScheme,
     scaffoldBackgroundColor: AppColors.lightBgBottom,
     appBarTheme: const AppBarTheme(
@@ -70,7 +77,7 @@ ThemeData buildAppTheme() {
       backgroundColor: Colors.transparent,
       foregroundColor: AppColors.textLight,
     ),
-    cardTheme: const CardTheme(
+    cardTheme: const CardThemeData(
       clipBehavior: Clip.antiAlias,
       margin: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       elevation: 0,
@@ -89,33 +96,72 @@ ThemeData buildAppTheme() {
       bodyColor: AppColors.textLight,
       displayColor: AppColors.textLight,
     ),
-  ).copyWith(
-    // Automatisch Dark-Mode support – du verwendest nur buildAppTheme()
-    // (MaterialApp nimmt system brightness, wir liefern beide Schemes.)
     brightness: Brightness.light,
-    extensions: <ThemeExtension<dynamic>>[
-      _AppThemeX(light: lightScheme, dark: darkScheme),
+    extensions: const <ThemeExtension<dynamic>>[
+      _AppThemeX(
+        light: true,
+      ),
     ],
   );
+
+  // ---- Dark ThemeData ----
+  final darkTheme = base.copyWith(
+    colorScheme: darkScheme,
+    scaffoldBackgroundColor: AppColors.darkBgBottom,
+    appBarTheme: const AppBarTheme(
+      centerTitle: false,
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      foregroundColor: AppColors.textDark,
+    ),
+    cardTheme: const CardThemeData(
+      clipBehavior: Clip.antiAlias,
+      margin: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      elevation: 0,
+      surfaceTintColor: Colors.transparent,
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        elevation: 0,
+        foregroundColor: Colors.white,
+        backgroundColor: AppColors.red,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+    ),
+    textTheme: base.textTheme.apply(
+      bodyColor: AppColors.textDark,
+      displayColor: AppColors.textDark,
+    ),
+    brightness: Brightness.dark,
+    extensions: const <ThemeExtension<dynamic>>[
+      _AppThemeX(
+        light: false,
+      ),
+    ],
+  );
+
+  // Wir liefern nur ein Theme raus – MaterialApp kann via systemBrightness
+  // automatisch Dark/Light wählen, wenn du zusätzlich darkTheme setzt.
+  // Du nutzt aktuell nur theme:, daher geben wir hier das Light zurück.
+  // (Dein main.dart kann optional darkTheme: buildDarkTheme() setzen)
+  return lightTheme;
 }
 
-/// Kleiner Trick: wir hängen beide Farbschemata als Extension an,
-/// damit GradientBackground im Dark/Light die richtigen Töne findet.
+/// Marker-Extension um hell/dunkel für den Gradient zu erkennen
 class _AppThemeX extends ThemeExtension<_AppThemeX> {
-  final ColorScheme light;
-  final ColorScheme dark;
-  const _AppThemeX({required this.light, required this.dark});
+  final bool light;
+  const _AppThemeX({required this.light});
 
   @override
-  _AppThemeX copyWith({ColorScheme? light, ColorScheme? dark}) =>
-      _AppThemeX(light: light ?? this.light, dark: dark ?? this.dark);
+  _AppThemeX copyWith({bool? light}) => _AppThemeX(light: light ?? this.light);
 
   @override
   _AppThemeX lerp(ThemeExtension<_AppThemeX>? other, double t) => this;
 }
 
-_AppThemeX appThemeX(BuildContext context) =>
-    Theme.of(context).extension<_AppThemeX>()!;
+bool _isLight(BuildContext context) =>
+    Theme.of(context).extension<_AppThemeX>()?.light ?? true;
 
 /// ------------------------------------
 /// Hintergrund mit leichtem Verlauf
@@ -126,9 +172,9 @@ class GradientBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final top = isDark ? AppColors.darkBgTop : AppColors.lightBgTop;
-    final bottom = isDark ? AppColors.darkBgBottom : AppColors.lightBgBottom;
+    final isLight = _isLight(context);
+    final top = isLight ? AppColors.lightBgTop : AppColors.darkBgTop;
+    final bottom = isLight ? AppColors.lightBgBottom : AppColors.darkBgBottom;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -144,7 +190,7 @@ class GradientBackground extends StatelessWidget {
 }
 
 /// ------------------------------------
-/// AppScaffold – Wrapper für alle Screens
+/// AppScaffold – jetzt MIT drawer: ...
 /// ------------------------------------
 class AppScaffold extends StatelessWidget {
   final PreferredSizeWidget? appBar;
@@ -224,9 +270,7 @@ class AppCard3D extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? AppColors.darkSurface : AppColors.lightSurface;
-    final bg2 = isDark ? AppColors.darkSurface2 : AppColors.lightSurface2;
+    final isLight = _isLight(context);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
@@ -236,22 +280,19 @@ class AppCard3D extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            isDark ? const Color(0xFF262B36) : const Color(0xFFFFFFFF),
-            isDark ? const Color(0xFF1B2029) : const Color(0xFFF3F5FA),
-          ],
+          colors: isLight
+              ? [const Color(0xFFFFFFFF), const Color(0xFFF3F5FA)]
+              : [const Color(0xFF262B36), const Color(0xFF1B2029)],
         ),
         boxShadow: [
-          // tiefer Schatten unten rechts
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.45 : 0.18),
+            color: Colors.black.withOpacity(isLight ? 0.18 : 0.45),
             blurRadius: 22,
             spreadRadius: 1,
             offset: const Offset(0, 14),
           ),
-          // weicher Lichtschein oben links
           BoxShadow(
-            color: (isDark ? Colors.white12 : Colors.white70),
+            color: (isLight ? Colors.white70 : Colors.white12),
             blurRadius: 18,
             spreadRadius: -8,
             offset: const Offset(-6, -6),
@@ -260,7 +301,7 @@ class AppCard3D extends StatelessWidget {
         border: Border.all(
           color: highlight
               ? AppColors.red.withOpacity(0.5)
-              : (isDark ? Colors.white12 : Colors.black12),
+              : (isLight ? Colors.black12 : Colors.white12),
           width: highlight ? 1.4 : 0.8,
         ),
       ),
@@ -305,18 +346,17 @@ class _AppButton3DState extends State<AppButton3D> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isLight = _isLight(context);
 
     final bgA = widget.filled
         ? AppColors.red
-        : (isDark ? const Color(0xFF2A303B) : const Color(0xFFFFFFFF));
+        : (isLight ? const Color(0xFFFFFFFF) : const Color(0xFF2A303B));
     final bgB = widget.filled
         ? AppColors.redDark
-        : (isDark ? const Color(0xFF1E2430) : const Color(0xFFF1F3F8));
+        : (isLight ? const Color(0xFFF1F3F8) : const Color(0xFF1E2430));
 
-    final fg = widget.filled
-        ? Colors.white
-        : (isDark ? AppColors.textDark : AppColors.textLight);
+    final fg =
+        widget.filled ? Colors.white : (isLight ? AppColors.textLight : AppColors.textDark);
 
     return Listener(
       onPointerDown: (_) => setState(() => _down = true),
@@ -334,20 +374,19 @@ class _AppButton3DState extends State<AppButton3D> {
           boxShadow: _down
               ? [
                   BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.55 : 0.22),
+                    color: Colors.black.withOpacity(isLight ? 0.22 : 0.55),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   )
                 ]
               : [
                   BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.55 : 0.22),
+                    color: Colors.black.withOpacity(isLight ? 0.22 : 0.55),
                     blurRadius: 18,
                     offset: const Offset(0, 10),
                   ),
-                  // Schimmerkante
                   BoxShadow(
-                    color: Colors.white.withOpacity(isDark ? 0.08 : 0.35),
+                    color: Colors.white.withOpacity(isLight ? 0.35 : 0.08),
                     blurRadius: 10,
                     spreadRadius: -6,
                     offset: const Offset(0, -4),
@@ -356,7 +395,7 @@ class _AppButton3DState extends State<AppButton3D> {
           border: Border.all(
             color: widget.filled
                 ? Colors.white.withOpacity(0.18)
-                : (isDark ? Colors.white10 : Colors.black12),
+                : (isLight ? Colors.black12 : Colors.white10),
             width: 1,
           ),
         ),
@@ -393,7 +432,7 @@ class _AppButton3DState extends State<AppButton3D> {
 }
 
 /// ----------------------------------------------------
-/// Kleine Utility-Header (optional, falls du sie brauchst)
+/// Kleine Utility-Header
 /// ----------------------------------------------------
 class SectionHeader extends StatelessWidget {
   final String text;
@@ -401,9 +440,8 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final muted = Theme.of(context).brightness == Brightness.dark
-        ? AppColors.textDarkMuted
-        : AppColors.textLightMuted;
+    final isLight = _isLight(context);
+    final muted = isLight ? AppColors.textLightMuted : AppColors.textDarkMuted;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
       child: Text(
