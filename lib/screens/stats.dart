@@ -131,27 +131,27 @@ class _ExerciseProgressDetailState extends State<ExerciseProgressDetail> {
             ),
           ),
 
-          const SectionHeader('Volumen (letzte 30 Tage)'),
+          SectionHeader('Volumen (letzte 30 Tage)'),
           if (_perDayVolume.isEmpty)
-            const AppCard(child: Text('Keine Daten.'))
+            AppCard(child: const Text('Keine Daten.'))
           else
             AppCard(child: SizedBox(height: 220, child: _volumeLineChart())),
 
-          const SectionHeader('Ø Wiederholungen pro Tag (letzte 30 Tage)'),
+          SectionHeader('Ø Wiederholungen pro Tag (letzte 30 Tage)'),
           if (_perDayRW.isEmpty)
-            const AppCard(child: Text('Keine Daten.'))
+            AppCard(child: const Text('Keine Daten.'))
           else
             AppCard(child: SizedBox(height: 220, child: _avgRepsLineChart())),
 
-          const SectionHeader('Max-Gewicht pro Tag (letzte 30 Tage)'),
+          SectionHeader('Max-Gewicht pro Tag (letzte 30 Tage)'),
           if (_perDayRW.isEmpty)
-            const AppCard(child: Text('Keine Daten.'))
+            AppCard(child: const Text('Keine Daten.'))
           else
             AppCard(child: SizedBox(height: 220, child: _maxWeightLineChart(unit.toString()))),
 
-          const SectionHeader('Letzte Sätze'),
+          SectionHeader('Letzte Sätze'),
           if (_recent.isEmpty)
-            const AppCard(child: Text('Keine Daten.'))
+            AppCard(child: const Text('Keine Daten.'))
           else
             AppCard(
               child: Column(
