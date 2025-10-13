@@ -1,114 +1,50 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// Optional: einfacher Controller, falls du später live umschalten willst.
 class ThemeController extends ChangeNotifier {
-  ThemeMode _mode = ThemeMode.system;
+  static const _prefKey = 'theme_mode';
+  late ThemeMode _mode;
+
   ThemeMode get mode => _mode;
 
-  void setMode(ThemeMode mode) {
-    if (_mode == mode) return;
-    _mode = mode;
+  ThemeController._(this._mode);
+
+  static Future<ThemeController> init() async {
+    final prefs = await SharedPreferences.getInstance();
+    final index = prefs.getInt(_prefKey) ?? ThemeMode.system.index;
+    return ThemeController._(ThemeMode.values[index]);
+  }
+
+  void setMode(ThemeMode newMode) async {
+    _mode = newMode;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_prefKey, newMode.index);
     notifyListeners();
   }
 }
 
-/// ---- LIGHT / DARK THEMES ----
-/// Diese Namen nutzt du bereits an anderen Stellen (buildLightTheme / buildDarkTheme).
+// ---- Hier deine Themes ---- //
 
 ThemeData buildLightTheme() {
-  final scheme = ColorScheme.fromSeed(
-    seedColor: const Color(0xFFE53935), // Rotton (anpassbar)
-    brightness: Brightness.light,
-  );
-
   return ThemeData(
+    brightness: Brightness.light,
+    colorScheme: ColorScheme.fromSeed(seedColor: Colors.redAccent),
     useMaterial3: true,
-    colorScheme: scheme,
-    scaffoldBackgroundColor: const Color(0xFFF7F8FA),
-    appBarTheme: AppBarTheme(
-      backgroundColor: scheme.surface,
-      foregroundColor: scheme.onSurface,
-      elevation: 0,
-      centerTitle: false,
-    ),
-    cardTheme: const CardThemeData( // <-- wichtig: CardThemeData statt CardTheme
-      elevation: 2,
-      margin: EdgeInsets.all(12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(16)),
-      ),
-    ),
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        shape: const StadiumBorder(),
-      ),
-    ),
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: const StadiumBorder(),
-      ),
-    ),
-    inputDecorationTheme: const InputDecorationTheme(
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(12)),
-      ),
-    ),
-    bottomNavigationBarTheme: BottomNavigationBarThemeData(
-      backgroundColor: scheme.surface,
-      selectedItemColor: scheme.primary,
-      unselectedItemColor: scheme.onSurfaceVariant,
-      type: BottomNavigationBarType.fixed,
+    cardTheme: const CardTheme(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
     ),
   );
 }
 
 ThemeData buildDarkTheme() {
-  final scheme = ColorScheme.fromSeed(
-    seedColor: const Color(0xFFE53935), // Rotton (anpassbar)
-    brightness: Brightness.dark,
-  );
-
   return ThemeData(
+    brightness: Brightness.dark,
+    colorScheme: ColorScheme.fromSeed(seedColor: Colors.redAccent, brightness: Brightness.dark),
     useMaterial3: true,
-    colorScheme: scheme,
-    scaffoldBackgroundColor: const Color(0xFF0E1116),
-    appBarTheme: AppBarTheme(
-      backgroundColor: scheme.surface,
-      foregroundColor: scheme.onSurface,
-      elevation: 0,
-      centerTitle: false,
-    ),
-    cardTheme: const CardThemeData( // <-- wichtig: CardThemeData statt CardTheme
-      elevation: 3,
-      margin: EdgeInsets.all(12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(16)),
-      ),
-    ),
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        shape: const StadiumBorder(),
-      ),
-    ),
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: const StadiumBorder(),
-      ),
-    ),
-    inputDecorationTheme: const InputDecorationTheme(
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(12)),
-      ),
-    ),
-    bottomNavigationBarTheme: BottomNavigationBarThemeData(
-      backgroundColor: scheme.surface,
-      selectedItemColor: scheme.primary,
-      unselectedItemColor: scheme.onSurfaceVariant,
-      type: BottomNavigationBarType.fixed,
+    cardTheme: const CardTheme(
+      elevation: 8,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
     ),
   );
 }
