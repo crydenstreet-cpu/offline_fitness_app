@@ -45,7 +45,7 @@ class _PlanListScreenState extends State<PlanListScreen> {
       }
 
       out.add(_DayEntry(
-        date: DateTime.parse('$ymdT00:00:00'),
+        date: DateTime.parse('${ymd}T00:00:00'),
         title: workoutName,
         lines: lines,
       ));
