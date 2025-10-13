@@ -1,49 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-import 'theme/theme_controller.dart'; // ⬅️ neu
+import 'theme/theme_controller.dart'; // enthält buildLightTheme / buildDarkTheme
 
+// Screens
 import 'screens/dashboard.dart';
-import 'screens/plan_hub.dart';
+import 'screens/plan_hub.dart';      // Tab-Container: Kalender + Planer
 import 'screens/workouts.dart';
 import 'screens/exercises.dart';
 import 'screens/stats.dart';
 import 'screens/journal.dart';
-import 'screens/settings.dart';       // ⬅️ neu
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('de_DE');
-  final themeController = await ThemeController.init(); // ⬅️ neu
-  runApp(MyApp(controller: themeController));
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  final ThemeController controller;
-  const MyApp({super.key, required this.controller});
-
+  const MyApp({super.key});
   @override
   Widget build(BuildContext context) {
-    // AnimatedBuilder -> MaterialApp aktualisiert sich, wenn sich ThemeMode ändert
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        return MaterialApp(
-          debugShowCheckedModeBanner: false,
-          title: 'Offline Fitness App',
-          theme: controller.lightTheme,     // ⬅️ helles Theme
-          darkTheme: controller.darkTheme,  // ⬅️ dunkles Theme
-          themeMode: controller.mode,       // ⬅️ System/Light/Dark aus Einstellungen
-          home: _NavWithDrawer(controller: controller),
-        );
-      },
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Offline Fitness App',
+      theme: buildLightTheme(),       // helles Theme
+      darkTheme: buildDarkTheme(),    // dunkles Theme
+      themeMode: ThemeMode.system,    // System folgt (in Einstellungen umschaltbar, wenn du willst)
+      home: const _NavWithDrawer(),   // Drawer-Navigation
     );
   }
 }
 
 class _NavWithDrawer extends StatefulWidget {
-  final ThemeController controller;
-  const _NavWithDrawer({super.key, required this.controller});
+  const _NavWithDrawer({super.key});
   @override
   State<_NavWithDrawer> createState() => _NavWithDrawerState();
 }
@@ -52,12 +42,12 @@ class _NavWithDrawerState extends State<_NavWithDrawer> {
   int _index = 0;
 
   final _pages = const <Widget>[
-    DashboardScreen(),
-    PlanHubScreen(),
-    WorkoutsScreen(),
-    ExercisesScreen(),
-    StatsScreen(),
-    JournalScreen(),
+    DashboardScreen(),   // 🏁 Home
+    PlanHubScreen(),     // 🗓️ Kalender + Wochen-Planer (mit Tabs)
+    WorkoutsScreen(),    // 💪 Workouts
+    ExercisesScreen(),   // 📋 Übungen
+    StatsScreen(),       // 📈 Stats
+    JournalScreen(),     // 📔 Tagebuch
   ];
 
   String get _title {
@@ -74,24 +64,14 @@ class _NavWithDrawerState extends State<_NavWithDrawer> {
 
   void _go(int i) {
     setState(() => _index = i);
-    Navigator.of(context).maybePop();
+    Navigator.of(context).maybePop(); // evtl. offene Routen schließen
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(_title)),
-      drawer: _AppDrawer(
-        selected: _index,
-        onSelect: _go,
-        onOpenSettings: () {
-          Navigator.pop(context);
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => SettingsScreen(controller: widget.controller)),
-          );
-        },
-      ),
+      drawer: _AppDrawer(selected: _index, onSelect: _go),
       body: SafeArea(child: _pages[_index]),
     );
   }
@@ -100,12 +80,7 @@ class _NavWithDrawerState extends State<_NavWithDrawer> {
 class _AppDrawer extends StatelessWidget {
   final int selected;
   final ValueChanged<int> onSelect;
-  final VoidCallback onOpenSettings;
-  const _AppDrawer({
-    required this.selected,
-    required this.onSelect,
-    required this.onOpenSettings,
-  });
+  const _AppDrawer({required this.selected, required this.onSelect, super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -119,7 +94,7 @@ class _AppDrawer extends StatelessWidget {
           leading: Icon(icon),
           title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
           onTap: () {
-            Navigator.pop(context);
+            Navigator.pop(context); // Drawer schließen
             onSelect(idx);
           },
         ),
@@ -141,20 +116,14 @@ class _AppDrawer extends StatelessWidget {
               ),
             ),
             const Divider(),
-
             item(icon: Icons.home,             label: 'Home',     idx: 0),
             item(icon: Icons.event_note,       label: 'Plan',     idx: 1),
             item(icon: Icons.fitness_center,   label: 'Workouts', idx: 2),
             item(icon: Icons.list_alt,         label: 'Übungen',  idx: 3),
             item(icon: Icons.bar_chart,        label: 'Stats',    idx: 4),
             item(icon: Icons.book,             label: 'Tagebuch', idx: 5),
-
             const Divider(),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Einstellungen'),
-              onTap: onOpenSettings,
-            ),
+            // Platz für weitere Punkte wie Einstellungen/Backup/Über usw.
           ],
         ),
       ),
