@@ -290,7 +290,7 @@ class DB {
     return (w is num) ? w.toDouble() : double.tryParse('$w');
   }
 
-  /// Für Auto-Vorbelegung / Edit / Delete
+  /// Letzter Satz dieser Übung in DIESER Session (für Auto-Vorbelegung)
   Future<Map<String, dynamic>?> lastSetForExerciseInSession(int sessionId, int exerciseId) async {
     final db = await database;
     final rows = await db.query(
@@ -303,6 +303,7 @@ class DB {
     return rows.isNotEmpty ? rows.first : null;
   }
 
+  /// Einen Satz aktualisieren (z. B. Reps/Gewicht/Notiz anpassen)
   Future<int> updateSet(int id, {int? reps, double? weight, String? note}) async {
     final db = await database;
     final data = <String, Object?>{};
@@ -313,6 +314,7 @@ class DB {
     return db.update('workout_sets', data, where: 'id = ?', whereArgs: [id]);
   }
 
+  /// Einen Satz löschen
   Future<int> deleteSet(int id) async {
     final db = await database;
     return db.delete('workout_sets', where: 'id = ?', whereArgs: [id]);
@@ -444,17 +446,14 @@ class DB {
     ''', [exerciseId, limitDays]);
   }
 
-  /// 🔥 NEU: echte Wdh & Gewicht pro Tag – für Charts/Statistik
-  Future<List<Map<String, dynamic>>> repsAndWeightPerDayForExercise(
-    int exerciseId, {int limitDays = 30}
-  ) async {
+  /// ⬅️ NEU: Ø-Reps und Max-Gewicht pro Tag für eine Übung (letzte N Tage)
+  Future<List<Map<String, dynamic>>> repsAndWeightPerDayForExercise(int exerciseId, {int limitDays = 30}) async {
     final db = await database;
     return db.rawQuery('''
-      SELECT substr(s.started_at, 1, 10) AS day,
-             AVG(ws.reps)      AS avg_reps,
-             AVG(ws.weight)    AS avg_weight,
-             MAX(ws.weight)    AS max_weight,
-             COUNT(*)          AS sets_count
+      SELECT
+        substr(s.started_at, 1, 10) AS day,
+        AVG(ws.reps)                AS avg_reps,
+        MAX(ws.weight)              AS max_weight
       FROM workout_sets ws
       JOIN sessions s ON s.id = ws.session_id
       WHERE ws.exercise_id = ?
@@ -477,7 +476,7 @@ class DB {
   Future<void> generateSchedule({
     required DateTime startDate,
     required int weeks,
-    required Map<int, int?> weekdayToWorkoutId,
+    required Map<int, int?> weekdayToWorkoutId, // 1=Mo..7=So -> workoutId?
   }) async {
     final db = await database;
     final batch = db.batch();
