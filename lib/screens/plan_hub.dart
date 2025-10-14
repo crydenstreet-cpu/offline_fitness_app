@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../ui/design.dart';
 import 'calendar_month.dart';
 import 'plan_list.dart';
 
 /// Tab-Container: Monat & Heute.
-/// Fix: PlanListScreen bekommt jetzt immer ein Datum übergeben.
+/// Nutzt AppScaffold => dein Dark/Gradient-Design greift wieder.
 class PlanHubScreen extends StatefulWidget {
   const PlanHubScreen({super.key});
 
@@ -16,22 +17,22 @@ class PlanHubScreen extends StatefulWidget {
 class _PlanHubScreenState extends State<PlanHubScreen> {
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Plan'),
-          bottom: const TabBar(
-            tabs: [
-              Tab(icon: Icon(Icons.calendar_month), text: 'Monat'),
-              Tab(icon: Icon(Icons.today), text: 'Heute'),
-            ],
-          ),
+    return AppScaffold(
+      appBar: AppBar(
+        title: const Text('Plan'),
+        bottom: const TabBar(
+          tabs: [
+            Tab(icon: Icon(Icons.calendar_month), text: 'Monat'),
+            Tab(icon: Icon(Icons.today), text: 'Heute'),
+          ],
         ),
-        body: const TabBarView(
+      ),
+      body: const DefaultTabController(
+        length: 2,
+        child: TabBarView(
           children: [
             CalendarMonthScreen(),
-            _TodayPlanTab(), // ⬅️ liefert PlanListScreen mit Datum
+            _TodayPlanTab(), // liefert PlanList + Planen-Button
           ],
         ),
       ),
@@ -39,7 +40,7 @@ class _PlanHubScreenState extends State<PlanHubScreen> {
   }
 }
 
-/// Einfache „Heute“-Ansicht mit Datum-Navigation (gestern/heute/morgen).
+/// Einfache „Heute“-Ansicht mit Datum-Navigation + PlanListScreen(date)
 class _TodayPlanTab extends StatefulWidget {
   const _TodayPlanTab({super.key});
 
@@ -50,12 +51,9 @@ class _TodayPlanTab extends StatefulWidget {
 class _TodayPlanTabState extends State<_TodayPlanTab> {
   DateTime _date = DateTime.now();
 
-  DateTime get _ymd =>
-      DateTime(_date.year, _date.month, _date.day); // normalisiert auf 00:00
+  DateTime get _ymd => DateTime(_date.year, _date.month, _date.day);
 
-  void _shift(int days) {
-    setState(() => _date = _ymd.add(Duration(days: days)));
-  }
+  void _shift(int days) => setState(() => _date = _ymd.add(Duration(days: days)));
 
   @override
   Widget build(BuildContext context) {
@@ -74,10 +72,7 @@ class _TodayPlanTabState extends State<_TodayPlanTab> {
               ),
               Expanded(
                 child: Center(
-                  child: Text(
-                    label,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
+                  child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
                 ),
               ),
               IconButton(
@@ -89,9 +84,7 @@ class _TodayPlanTabState extends State<_TodayPlanTab> {
           ),
         ),
         const Divider(height: 1),
-        Expanded(
-          child: PlanListScreen(date: _ymd),
-        ),
+        Expanded(child: PlanListScreen(date: _ymd)),
       ],
     );
   }
