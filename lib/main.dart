@@ -1,44 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:provider/provider.dart';
 
 import 'ui/design.dart';
-import 'theme/theme_controller.dart';
 
+// Deine Screens
 import 'screens/dashboard.dart';
 import 'screens/plan_hub.dart';
 import 'screens/workouts.dart';
 import 'screens/exercises.dart';
 import 'screens/stats.dart';
 import 'screens/journal.dart';
-import 'screens/settings.dart'; // <-- Einstellungen-Screen
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('de_DE');
-
-  // ThemeController laden (speichert Wahl via SharedPreferences)
-  final themeController = await ThemeController.init();
-
-  runApp(
-    ChangeNotifierProvider.value(
-      value: themeController,
-      child: const MyApp(),
-    ),
-  );
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeController>(context);
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Offline Fitness App',
-      theme: buildLightTheme(),   // aus design.dart
-      darkTheme: buildDarkTheme(),// aus design.dart
-      themeMode: ThemeMode.dark,  // ← zum Test hart auf dunkel
+
+      // ⬇️ Helles + dunkles Theme aus design.dart
+      theme: buildLightTheme(),
+      darkTheme: buildDarkTheme(),
+
+      // ⬇️ Dark erzwingen (zum Test). Später gerne ThemeMode.system
+      themeMode: ThemeMode.dark,
+
       home: const _NavWithDrawer(),
     );
   }
@@ -54,12 +48,12 @@ class _NavWithDrawerState extends State<_NavWithDrawer> {
   int _index = 0;
 
   final _pages = const <Widget>[
-    DashboardScreen(),
-    PlanHubScreen(),
-    WorkoutsScreen(),
-    ExercisesScreen(),
-    StatsScreen(),
-    JournalScreen(),
+    DashboardScreen(),   // 🏁 Home
+    PlanHubScreen(),     // 🗓️ Kalender + Wochen-Planer (mit Tabs)
+    WorkoutsScreen(),    // 💪 Workouts
+    ExercisesScreen(),   // 📋 Übungen
+    StatsScreen(),       // 📈 Stats
+    JournalScreen(),     // 📔 Tagebuch
   ];
 
   String get _title {
@@ -81,35 +75,8 @@ class _NavWithDrawerState extends State<_NavWithDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeController>(context, listen: false);
-
     return AppScaffold(
-      appBar: AppBar(
-        title: Text(_title),
-        actions: [
-          // Schneller Theme-Toggle rechts oben (Zyklus: System -> Hell -> Dunkel)
-          IconButton(
-            tooltip: 'Theme wechseln',
-            onPressed: () {
-              final next = {
-                ThemeMode.system: ThemeMode.light,
-                ThemeMode.light: ThemeMode.dark,
-                ThemeMode.dark: ThemeMode.system,
-              }[theme.mode]!;
-              theme.setMode(next);
-            },
-            icon: Builder(
-              builder: (_) {
-                switch (theme.mode) {
-                  case ThemeMode.system: return const Icon(Icons.brightness_auto);
-                  case ThemeMode.light:  return const Icon(Icons.light_mode);
-                  case ThemeMode.dark:   return const Icon(Icons.dark_mode);
-                }
-              },
-            ),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: Text(_title)),
       drawer: _AppDrawer(selected: _index, onSelect: _go),
       body: _pages[_index],
     );
@@ -146,11 +113,13 @@ class _AppDrawer extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 8),
           children: [
             ListTile(
-              title: const Text('Offline Fitness App', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              title: const Text('Offline Fitness App',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
               subtitle: const Text('Alles an einem Ort'),
               trailing: IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () => Navigator.pop(context),
+                tooltip: 'Menü schließen',
               ),
             ),
             const Divider(),
@@ -160,16 +129,6 @@ class _AppDrawer extends StatelessWidget {
             item(icon: Icons.list_alt,       label: 'Übungen',  idx: 3),
             item(icon: Icons.bar_chart,      label: 'Stats',    idx: 4),
             item(icon: Icons.book,           label: 'Tagebuch', idx: 5),
-            const Divider(),
-            // Einstellungen-Link (öffnet Screen)
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Einstellungen'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
-              },
-            ),
           ],
         ),
       ),
