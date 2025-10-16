@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
+
 import '../db/database_helper.dart';
-import '../ui/design.dart';
+import '../ui/design.dart' as ui; // ⬅️ Präfix für SectionHeader/AppCard/AppColors
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -26,14 +27,18 @@ class _StatsScreenState extends State<StatsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
+    return ui.AppScaffold(
       appBar: AppBar(title: const Text('📈 Progress & PRs')),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _exercisesFuture,
         builder: (context, snap) {
-          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+          if (!snap.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
           final exercises = snap.data!;
-          if (exercises.isEmpty) return const Center(child: Text('Noch keine Übungen angelegt.'));
+          if (exercises.isEmpty) {
+            return const Center(child: Text('Noch keine Übungen angelegt.'));
+          }
           return ListView.builder(
             padding: const EdgeInsets.only(bottom: 16),
             itemCount: exercises.length,
@@ -44,23 +49,32 @@ class _StatsScreenState extends State<StatsScreen> {
                 builder: (context, progSnap) {
                   final p = progSnap.data;
                   final maxW = p?['max_weight'];
-                  final vol  = p?['total_volume'];
+                  final vol = p?['total_volume'];
                   final sets = p?['total_sets'];
-                  return AppCard(
+                  return ui.AppCard(
                     child: ListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text(e['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w800)),
+                      title: Text(
+                        e['name'] ?? '',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
                       subtitle: Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text([
-                          if (maxW != null) 'PR: ${_fmtNum(maxW)} ${e['unit'] ?? 'kg'}',
-                          if (vol  != null) 'Volumen: ${_fmtNum(vol)}',
+                          if (maxW != null)
+                            'PR: ${_fmtNum(maxW)} ${e['unit'] ?? 'kg'}',
+                          if (vol != null) 'Volumen: ${_fmtNum(vol)}',
                           if (sets != null) 'Sätze: $sets',
                         ].join('  •  ')),
                       ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => Navigator.push(
-                        context, MaterialPageRoute(builder: (_) => ExerciseProgressDetail(exercise: e))),
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              ExerciseProgressDetail(exercise: e),
+                        ),
+                      ),
                     ),
                   );
                 },
@@ -83,7 +97,8 @@ class ExerciseProgressDetail extends StatefulWidget {
   final Map<String, dynamic> exercise;
   const ExerciseProgressDetail({super.key, required this.exercise});
   @override
-  State<ExerciseProgressDetail> createState() => _ExerciseProgressDetailState();
+  State<ExerciseProgressDetail> createState() =>
+      _ExerciseProgressDetailState();
 }
 
 class _ExerciseProgressDetailState extends State<ExerciseProgressDetail> {
@@ -93,15 +108,26 @@ class _ExerciseProgressDetailState extends State<ExerciseProgressDetail> {
   List<Map<String, dynamic>> _perDayRW = []; // avg_reps, max_weight pro Tag
 
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() {
+    super.initState();
+    _load();
+  }
 
   Future<void> _load() async {
     final id = widget.exercise['id'] as int;
     final best = await DB.instance.bestSetForExercise(id);
     final recent = await DB.instance.recentSetsForExercise(id, limit: 12);
-    final perDayVol = await DB.instance.volumePerDayForExercise(id, limitDays: 30);
-    final perDayRW = await DB.instance.repsAndWeightPerDayForExercise(id, limitDays: 30);
-    setState(() { _best = best; _recent = recent; _perDayVolume = perDayVol; _perDayRW = perDayRW; });
+    final perDayVol =
+        await DB.instance.volumePerDayForExercise(id, limitDays: 30);
+    // ⬇️ nutzt echte Wiederholungen & Gewichte (nicht die Planwerte!)
+    final perDayRW =
+        await DB.instance.repsAndWeightPerDayForExercise(id, limitDays: 30);
+    setState(() {
+      _best = best;
+      _recent = recent;
+      _perDayVolume = perDayVol;
+      _perDayRW = perDayRW;
+    });
   }
 
   @override
@@ -110,56 +136,73 @@ class _ExerciseProgressDetailState extends State<ExerciseProgressDetail> {
     final unit = e['unit'] ?? 'kg';
     final dateFmt = DateFormat('dd.MM.yyyy');
 
-    return AppScaffold(
+    return ui.AppScaffold(
       appBar: AppBar(title: Text('Progress: ${e['name']}')),
       body: ListView(
         children: [
-          AppCard(
+          ui.AppCard(
             child: Row(
               children: [
-                const Icon(Icons.emoji_events, color: AppColors.primary),
+                const Icon(Icons.emoji_events, color: ui.AppColors.primary),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Personal Record', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-                    Text(_best == null
-                        ? '–'
-                        : '${_num(_best!['weight'])} $unit  ×  ${_best!['reps']}  (${_best!['started_at'] != null ? dateFmt.format(DateTime.parse(_best!['started_at'])) : '-'})'),
-                  ]),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Personal Record',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w800)),
+                      Text(_best == null
+                          ? '–'
+                          : '${_num(_best!['weight'])} $unit  ×  ${_best!['reps']}  (${_best!['started_at'] != null ? dateFmt.format(DateTime.parse(_best!['started_at'])) : '-'})'),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
 
-          SectionHeader('Volumen (letzte 30 Tage)'),
+          const ui.SectionHeader('Volumen (letzte 30 Tage)'),
           if (_perDayVolume.isEmpty)
-            AppCard(child: const Text('Keine Daten.'))
+            const ui.AppCard(child: Text('Keine Daten.'))
           else
-            AppCard(child: SizedBox(height: 220, child: _volumeLineChart())),
+            ui.AppCard(
+                child:
+                    SizedBox(height: 220, child: _volumeLineChart())),
 
-          SectionHeader('Ø Wiederholungen pro Tag (letzte 30 Tage)'),
+          const ui.SectionHeader('Ø Wiederholungen pro Tag (letzte 30 Tage)'),
           if (_perDayRW.isEmpty)
-            AppCard(child: const Text('Keine Daten.'))
+            const ui.AppCard(child: Text('Keine Daten.'))
           else
-            AppCard(child: SizedBox(height: 220, child: _avgRepsLineChart())),
+            ui.AppCard(
+                child:
+                    SizedBox(height: 220, child: _avgRepsLineChart())),
 
-          SectionHeader('Max-Gewicht pro Tag (letzte 30 Tage)'),
+          const ui.SectionHeader('Max-Gewicht pro Tag (letzte 30 Tage)'),
           if (_perDayRW.isEmpty)
-            AppCard(child: const Text('Keine Daten.'))
+            const ui.AppCard(child: Text('Keine Daten.'))
           else
-            AppCard(child: SizedBox(height: 220, child: _maxWeightLineChart(unit.toString()))),
+            ui.AppCard(
+                child: SizedBox(
+                    height: 220,
+                    child: _maxWeightLineChart(unit.toString()))),
 
-          SectionHeader('Letzte Sätze'),
+          const ui.SectionHeader('Letzte Sätze'),
           if (_recent.isEmpty)
-            AppCard(child: const Text('Keine Daten.'))
+            const ui.AppCard(child: Text('Keine Daten.'))
           else
-            AppCard(
+            ui.AppCard(
               child: Column(
                 children: _recent.map((s) {
-                  final when = s['started_at'] != null ? dateFmt.format(DateTime.parse(s['started_at'])) : '-';
+                  final when = s['started_at'] != null
+                      ? dateFmt.format(DateTime.parse(s['started_at']))
+                      : '-';
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(backgroundColor: AppColors.surface2, child: Text('${s['set_index']}')),
+                    leading: CircleAvatar(
+                      backgroundColor: ui.AppColors.surface2,
+                      child: Text('${s['set_index']}'),
+                    ),
                     title: Text('${s['reps']} × ${_num(s['weight'])} $unit'),
                     subtitle: Text(when),
                   );
@@ -182,10 +225,20 @@ class _ExerciseProgressDetailState extends State<ExerciseProgressDetail> {
     }
     return LineChart(
       LineChartData(
-        minX: 0, maxX: (spots.length - 1).toDouble(), minY: 0,
-        lineBarsData: [LineChartBarData(spots: spots, isCurved: true, dotData: const FlDotData(show: false), belowBarData: BarAreaData(show: true))],
+        minX: 0,
+        maxX: (spots.length - 1).toDouble(),
+        minY: 0,
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            dotData: const FlDotData(show: false),
+            belowBarData: BarAreaData(show: true),
+          )
+        ],
         titlesData: _xTitles(daysAsc),
-        gridData: const FlGridData(show: true), borderData: FlBorderData(show: false),
+        gridData: const FlGridData(show: true),
+        borderData: FlBorderData(show: false),
       ),
     );
   }
@@ -199,10 +252,20 @@ class _ExerciseProgressDetailState extends State<ExerciseProgressDetail> {
     }
     return LineChart(
       LineChartData(
-        minX: 0, maxX: (spots.length - 1).toDouble(), minY: 0,
-        lineBarsData: [LineChartBarData(spots: spots, isCurved: true, dotData: const FlDotData(show: false), belowBarData: BarAreaData(show: true))],
+        minX: 0,
+        maxX: (spots.length - 1).toDouble(),
+        minY: 0,
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            dotData: const FlDotData(show: false),
+            belowBarData: BarAreaData(show: true),
+          )
+        ],
         titlesData: _xTitles(daysAsc),
-        gridData: const FlGridData(show: true), borderData: FlBorderData(show: false),
+        gridData: const FlGridData(show: true),
+        borderData: FlBorderData(show: false),
       ),
     );
   }
@@ -216,30 +279,52 @@ class _ExerciseProgressDetailState extends State<ExerciseProgressDetail> {
     }
     return LineChart(
       LineChartData(
-        minX: 0, maxX: (spots.length - 1).toDouble(), minY: 0,
-        lineBarsData: [LineChartBarData(spots: spots, isCurved: true, dotData: const FlDotData(show: false), belowBarData: BarAreaData(show: true))],
+        minX: 0,
+        maxX: (spots.length - 1).toDouble(),
+        minY: 0,
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            dotData: const FlDotData(show: false),
+            belowBarData: BarAreaData(show: true),
+          )
+        ],
         titlesData: _xTitles(daysAsc),
-        gridData: const FlGridData(show: true), borderData: FlBorderData(show: false),
+        gridData: const FlGridData(show: true),
+        borderData: FlBorderData(show: false),
       ),
     );
   }
 
   FlTitlesData _xTitles(List<Map<String, dynamic>> daysAsc) {
     return FlTitlesData(
-      bottomTitles: AxisTitles(sideTitles: SideTitles(
-        showTitles: true, interval: (daysAsc.length / 4).clamp(1, 7).toDouble(),
-        getTitlesWidget: (value, meta) {
-          final idx = value.round();
-          if (idx < 0 || idx >= daysAsc.length) return const SizedBox.shrink();
-          final d = (daysAsc[idx]['day'] as String);
-          final label = d.length >= 10 ? d.substring(5, 10) : d;
-          return Padding(padding: const EdgeInsets.only(top: 6), child: Text(label, style: const TextStyle(fontSize: 10)));
-        },
-      )),
-      leftTitles: AxisTitles(sideTitles: SideTitles(
-        showTitles: true, reservedSize: 40,
-        getTitlesWidget: (v, m) => Text(_shortNumber(v), style: const TextStyle(fontSize: 10)),
-      )),
+      bottomTitles: AxisTitles(
+        sideTitles: SideTitles(
+          showTitles: true,
+          interval: (daysAsc.length / 4).clamp(1, 7).toDouble(),
+          getTitlesWidget: (value, meta) {
+            final idx = value.round();
+            if (idx < 0 || idx >= daysAsc.length) {
+              return const SizedBox.shrink();
+            }
+            final d = (daysAsc[idx]['day'] as String);
+            final label = d.length >= 10 ? d.substring(5, 10) : d;
+            return Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(label, style: const TextStyle(fontSize: 10)),
+            );
+          },
+        ),
+      ),
+      leftTitles: AxisTitles(
+        sideTitles: SideTitles(
+          showTitles: true,
+          reservedSize: 40,
+          getTitlesWidget: (v, m) =>
+              Text(_shortNumber(v), style: const TextStyle(fontSize: 10)),
+        ),
+      ),
       rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
       topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
     );
