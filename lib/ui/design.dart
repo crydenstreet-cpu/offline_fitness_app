@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 /// -------------------------------
 /// Farben (Grau/Schwarz/Rot-Stil)
-/// + Backwards-Compat Aliase (primary, surface2, text)
+/// + Backwards-Compat + dynamische Helfer
 /// -------------------------------
 class AppColors {
   // Akzent
@@ -28,10 +28,14 @@ class AppColors {
   static const Color textLight = Color(0xFF101318);
   static const Color textLightMuted = Color(0xFF5E6676);
 
-  // ===== Backwards-Compat Aliase (für bestehenden Code) =====
-  static const Color primary = red;            // wurde in alten Screens genutzt
-  static const Color surface2 = lightSurface2; // z. B. für CircleAvatar
-  static const Color text = textLight;         // Standard-Textfarbe (Light)
+  // ===== Backwards-Compat Aliase (ALT – statisch) =====
+  // ⚠️ Aus Kompatibilitätsgründen bleiben die Konstanten bestehen,
+  //    ABER nutze bitte die dynamischen Helfer unten (surface2Of/textOf).
+  static const Color primary = red;
+  @Deprecated('Nutze AppPalette.surface2Of(context)')
+  static const Color surface2 = lightSurface2;
+  @Deprecated('Nutze AppPalette.textOf(context)')
+  static const Color text = textLight;
 }
 
 /// Marker-Extension um hell/dunkel für den Gradient zu erkennen
@@ -47,7 +51,22 @@ class _AppThemeX extends ThemeExtension<_AppThemeX> {
 }
 
 bool _isLight(BuildContext context) =>
-    Theme.of(context).extension<_AppThemeX>()?.light ?? true;
+    Theme.of(context).extension<_AppThemeX>()?.light ??
+    (Theme.of(context).brightness == Brightness.light);
+
+/// ------------------------------------
+/// Dynamische Helfer (nutze diese in Widgets)
+/// ------------------------------------
+class AppPalette {
+  static Color surface2Of(BuildContext c) =>
+      _isLight(c) ? AppColors.lightSurface2 : AppColors.darkSurface2;
+
+  static Color textOf(BuildContext c) =>
+      _isLight(c) ? AppColors.textLight : AppColors.textDark;
+
+  static Color textMutedOf(BuildContext c) =>
+      _isLight(c) ? AppColors.textLightMuted : AppColors.textDarkMuted;
+}
 
 /// ----------------------------------------------------
 /// THEME (Material 3, kräftiger Rot-Akzent)
@@ -79,6 +98,7 @@ ThemeData buildLightTheme() {
       backgroundColor: Colors.transparent,
       foregroundColor: AppColors.textLight,
     ),
+    // Material 3 CardTheme *Data*
     cardTheme: const CardThemeData(
       clipBehavior: Clip.antiAlias,
       margin: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -436,8 +456,7 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isLight = _isLight(context);
-    final muted = isLight ? AppColors.textLightMuted : AppColors.textDarkMuted;
+    final muted = AppPalette.textMutedOf(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
       child: Text(
