@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
-import '../ui/design.dart' as ui;
 
-/// Monatskalender mit Workout-Badges pro Tag – im gleichen Design wie der Rest.
-/// Kein eigenes Scaffold/AppBar hier, weil PlanHub die AppBar/Gradient liefert.
+/// Monatskalender mit Workout-Badges pro Tag – Design passend zu PlanHub.
+/// Tap  = Tagesansicht öffnen
+/// Long-Press = Workout für den Tag planen/ändern/löschen
 class CalendarMonthScreen extends StatefulWidget {
   const CalendarMonthScreen({super.key});
   @override
@@ -13,7 +13,7 @@ class CalendarMonthScreen extends StatefulWidget {
 
 class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
   late DateTime _month; // 1. des aktuellen Monats
-  Map<String, Map<String, dynamic>> _byDate = {}; // yyy-MM-dd -> {date, workout_id, workout_name}
+  Map<String, Map<String, dynamic>> _byDate = {}; // yyyy-MM-dd -> {date, workout_id, workout_name}
   bool _loading = true;
 
   @override
@@ -31,11 +31,11 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     setState(() => _loading = true);
 
     final firstDay = DateTime(_month.year, _month.month, 1);
-    final lastDay = DateTime(_month.year, _month.month + 1, 0);
+    final lastDay  = DateTime(_month.year, _month.month + 1, 0);
 
-    // Montag..Sonntag einblenden
+    // Sichtbaren Bereich auf Mo–So Wochenraster erweitern
     final start = firstDay.subtract(Duration(days: firstDay.weekday - 1));
-    final end = lastDay.add(Duration(days: 7 - lastDay.weekday));
+    final end   = lastDay.add(Duration(days: 7 - lastDay.weekday));
 
     final rows = await DB.instance.getScheduleBetween(start, end);
     final map = <String, Map<String, dynamic>>{};
@@ -67,7 +67,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     final monthLabel = DateFormat('MMMM yyyy', 'de_DE').format(_month);
     return Column(
       children: [
-        // Kopfzeile (Monat + Pfeile) im gleichen Stil
+        // Kopfzeile (Monat + Pfeile)
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
           child: Row(
@@ -109,17 +109,20 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
       child: Row(
-        children: List.generate(7, (i) => Expanded(child: Center(child: Text(names[i], style: style)))),
+        children: List.generate(
+          7,
+          (i) => Expanded(child: Center(child: Text(names[i], style: style))),
+        ),
       ),
     );
   }
 
   Widget _monthGrid(BuildContext context) {
     final firstDay = DateTime(_month.year, _month.month, 1);
-    final lastDay = DateTime(_month.year, _month.month + 1, 0);
+    final lastDay  = DateTime(_month.year, _month.month + 1, 0);
 
     final start = firstDay.subtract(Duration(days: firstDay.weekday - 1));
-    final end = lastDay.add(Duration(days: 7 - lastDay.weekday));
+    final end   = lastDay.add(Duration(days: 7 - lastDay.weekday));
 
     final days = <DateTime>[];
     for (DateTime d = start; !d.isAfter(end); d = d.add(const Duration(days: 1))) {
@@ -149,9 +152,22 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () {
+          // Tagesansicht (bekannter Flow)
           Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => _PlanForDayScreen(date: day)),
           );
+        },
+        onLongPress: () async {
+          // Direkt im Kalender planen/ändern/löschen
+          final changed = await _pickWorkoutAndSaveForDate(context, day, scheduled);
+          if (changed == true) {
+            await _load();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Plan für ${DateFormat('dd.MM.yyyy').format(day)} aktualisiert.')),
+              );
+            }
+          }
         },
         child: Container(
           decoration: BoxDecoration(
@@ -162,9 +178,10 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
               width: isToday ? 2 : 1,
             ),
             boxShadow: [
-              // leichter „lift“ wie in deinen Cards
               BoxShadow(
-                color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.light ? 0.08 : 0.28),
+                color: Colors.black.withOpacity(
+                  Theme.of(context).brightness == Brightness.light ? 0.08 : 0.28,
+                ),
                 blurRadius: 12,
                 offset: const Offset(0, 6),
               ),
@@ -227,9 +244,98 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
       ),
     );
   }
+
+  /// Workout für Datum wählen/speichern/löschen (BottomSheet).
+  Future<bool> _pickWorkoutAndSaveForDate(
+    BuildContext context,
+    DateTime date,
+    Map<String, dynamic>? current,
+  ) async {
+    final ymd = _ymd(date);
+    final workouts = await DB.instance.getWorkouts();
+    int? selected = current?['workout_id'] as int?;
+
+    final chosenId = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Workout für $ymd wählen',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                if (workouts.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('Noch keine Workouts vorhanden. Lege erst ein Workout an.'),
+                  )
+                else
+                  Flexible(
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: workouts.map((w) {
+                        final id = w['id'] as int;
+                        return RadioListTile<int>(
+                          value: id,
+                          groupValue: selected,
+                          title: Text(w['name'] ?? ''),
+                          onChanged: (v) => selected = v,
+                          secondary: const Icon(Icons.fitness_center),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    if (current != null)
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.delete_outline),
+                          label: const Text('Plan löschen'),
+                          onPressed: () => Navigator.pop(ctx, -1),
+                        ),
+                      ),
+                    if (current != null) const SizedBox(width: 8),
+                    Expanded(
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.save),
+                        label: const Text('Speichern'),
+                        onPressed: (selected == null && current == null)
+                            ? null
+                            : () => Navigator.pop(ctx, selected),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (chosenId == null) return false;
+
+    if (chosenId == -1) {
+      await DB.instance.deleteSchedule(ymd);
+      return true;
+    } else {
+      await DB.instance.upsertSchedule(ymd, chosenId);
+      return true;
+    }
+  }
 }
 
-/// Kleiner Tages-Screen (beibehaltener Flow)
+/// Kleine Tages-Detailansicht (beibehaltener Flow)
 class _PlanForDayScreen extends StatelessWidget {
   final DateTime date;
   const _PlanForDayScreen({required this.date, super.key});
