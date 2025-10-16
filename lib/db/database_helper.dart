@@ -20,7 +20,7 @@ class DB {
 
     return openDatabase(
       path,
-      version: 5, // v5: motivation-Spalte im Journal
+      version: 6, // ⬅️ v6: exercises.position + Fixes
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -34,6 +34,7 @@ class DB {
             unit TEXT DEFAULT 'kg',
             default_sets INTEGER DEFAULT 3,
             default_reps INTEGER DEFAULT 10,
+            position INTEGER,                 -- ⬅️ v6
             created_at TEXT
           );
         ''');
@@ -144,9 +145,14 @@ class DB {
         }
         if (oldVersion < 5) {
           final cols = await db.rawQuery('PRAGMA table_info(journal_entries);');
-          final hasMotivation = cols.any((c) => (c['name'] as String?) == 'motivation');
-          if (!hasMotivation) {
+          if (!cols.any((c) => (c['name'] as String?) == 'motivation')) {
             await db.execute('ALTER TABLE journal_entries ADD COLUMN motivation INTEGER;');
+          }
+        }
+        if (oldVersion < 6) {
+          final cols = await db.rawQuery('PRAGMA table_info(exercises);');
+          if (!cols.any((c) => (c['name'] as String?) == 'position')) {
+            await db.execute('ALTER TABLE exercises ADD COLUMN position INTEGER;');
           }
         }
       },
@@ -162,7 +168,8 @@ class DB {
 
   Future<List<Map<String, dynamic>>> getExercises() async {
     final db = await database;
-    return db.query('exercises', orderBy: 'created_at DESC');
+    // Sortierung: zuerst manuell (position), dann fallback auf id DESC
+    return db.query('exercises', orderBy: 'COALESCE(position, 999999), id DESC');
   }
 
   Future<int> updateExercise(int id, Map<String, dynamic> data) async {
@@ -173,6 +180,16 @@ class DB {
   Future<int> deleteExercise(int id) async {
     final db = await database;
     return db.delete('exercises', where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// ⬅️ Wird aus exercises.dart beim Drag&Drop-Reorder aufgerufen
+  Future<void> updateExercisesOrder(List<int> idsInOrder) async {
+    final db = await database;
+    final batch = db.batch();
+    for (int i = 0; i < idsInOrder.length; i++) {
+      batch.update('exercises', {'position': i + 1}, where: 'id = ?', whereArgs: [idsInOrder[i]]);
+    }
+    await batch.commit(noResult: true);
   }
 
   // -------- WORKOUTS --------
@@ -276,7 +293,6 @@ class DB {
     );
   }
 
-  /// Letzter Satz dieser Übung in dieser Session (für Auto-Vorbelegung)
   Future<Map<String, dynamic>?> lastSetForExerciseInSession(int sessionId, int exerciseId) async {
     final db = await database;
     final rows = await db.query(
@@ -289,7 +305,6 @@ class DB {
     return rows.isNotEmpty ? rows.first : null;
   }
 
-  /// Einen Satz aktualisieren (z. B. Reps/Gewicht/Notiz anpassen)
   Future<int> updateSet(int id, {int? reps, double? weight, String? note}) async {
     final db = await database;
     final data = <String, Object?>{};
@@ -300,13 +315,11 @@ class DB {
     return db.update('workout_sets', data, where: 'id = ?', whereArgs: [id]);
   }
 
-  /// Einen Satz löschen
   Future<int> deleteSet(int id) async {
     final db = await database;
     return db.delete('workout_sets', where: 'id = ?', whereArgs: [id]);
   }
 
-  /// Historisch: letztes verwendetes Gewicht für eine Übung (über alle Sessions)
   Future<double?> lastWeightForExercise(int exerciseId) async {
     final db = await database;
     final res = await db.rawQuery('''
@@ -320,8 +333,6 @@ class DB {
     if (res.isEmpty) return null;
     final w = res.first['weight'];
     return (w is num) ? w.toDouble() : double.tryParse('$w');
-    // Hinweis: Diese Methode ist identisch mit der oben genannten, bleibt
-    // aber separat, weil diverse Screens exakt diesen Namen erwarten.
   }
 
   // -------- JOURNAL --------
@@ -400,13 +411,13 @@ class DB {
   // -------- PROGRESS (pro Übung) --------
   Future<Map<String, dynamic>?> progressForExercise(int exerciseId) async {
     final db = await database;
-    final res = await db.rawQuery('''
-      SELECT MAX(weight) AS max_weight,
-             SUM(weight * reps) AS total_volume,
-             COUNT(*) AS total_sets
-      FROM workout_sets
-      WHERE exercise_id = ?
-    ''', [exerciseId]);
+    final res = await db.rawQuery(''
+        'SELECT MAX(weight) AS max_weight, '
+        '       SUM(weight * reps) AS total_volume, '
+        '       COUNT(*) AS total_sets '
+        'FROM workout_sets '
+        'WHERE exercise_id = ?',
+        [exerciseId]);
     return res.isNotEmpty ? res.first : null;
   }
 
@@ -450,15 +461,15 @@ class DB {
     ''', [exerciseId, limitDays]);
   }
 
-  /// Reps- & Gewichts-Kennzahlen pro Tag (tatsächliche Sätze)
+  /// ⬅️ KORREKTE SIGNATUR (vorher fehlende Klammer) – Ø-Reps + Max-Weight pro Tag
   Future<List<Map<String, dynamic>>> repsAndWeightPerDayForExercise(
     int exerciseId, {int limitDays = 30}
-  }) async {
+  ) async {
     final db = await database;
     return db.rawQuery('''
       SELECT substr(s.started_at, 1, 10) AS day,
-             AVG(ws.reps)                 AS avg_reps,
-             MAX(ws.weight)               AS max_weight
+             AVG(ws.reps)   AS avg_reps,
+             MAX(ws.weight) AS max_weight
       FROM workout_sets ws
       JOIN sessions s ON s.id = ws.session_id
       WHERE ws.exercise_id = ?
@@ -481,7 +492,7 @@ class DB {
   Future<void> generateSchedule({
     required DateTime startDate,
     required int weeks,
-    required Map<int, int?> weekdayToWorkoutId, // 1=Mo..7=So -> workoutId?
+    required Map<int, int?> weekdayToWorkoutId,
   }) async {
     final db = await database;
     final batch = db.batch();
@@ -560,7 +571,7 @@ class DB {
   Future<List<Map<String, dynamic>>> volumeByDayAll({int days = 14}) async {
     final db = await database;
     final since = DateTime.now().subtract(Duration(days: days - 1));
-    final sinceIso = since.toIso8601String().substring(0, 10); // yyyy-MM-dd
+    final sinceIso = since.toIso8601String().substring(0, 10);
     return db.rawQuery('''
       SELECT substr(s.started_at, 1, 10) AS day,
              COALESCE(SUM(ws.weight * ws.reps), 0) AS volume
