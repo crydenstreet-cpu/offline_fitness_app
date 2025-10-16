@@ -2,14 +2,14 @@
 import 'package:flutter/material.dart';
 import '../ui/design.dart' as ui;
 import '../utils/backup.dart';
+import '../theme/theme_switcher.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return ui.AppScaffold(
       appBar: AppBar(title: const Text('Einstellungen')),
@@ -35,10 +35,7 @@ class SettingsScreen extends StatelessWidget {
                   selected: {isDark ? Brightness.dark : Brightness.light},
                   onSelectionChanged: (sel) {
                     final wantDark = sel.first == Brightness.dark;
-                    // Systemweite Theme-Umstellung via Inherited ThemeMode (einfachste Variante):
-                    // => wir nutzen MaterialApp.themeMode über Navigator state
-                    // Hier: wir triggern eine Route-Neuaufbau-Callback, den du in main.dart gesetzt hast.
-                    _ThemeSwitcher.of(context)?.setDark(wantDark);
+                    ThemeSwitcher.of(context)?.setDark(wantDark);
                   },
                 ),
               ],
@@ -55,10 +52,10 @@ class SettingsScreen extends StatelessWidget {
                 const Text('Daten-Backup', style: TextStyle(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 8),
                 const Text(
-                    'Exportiere alle lokalen Daten (Übungen, Workouts, Sätze, Journal, Plan) '
-                    'als JSON-Datei. Beim Import wird der aktuelle Datenbestand ersetzt.'),
+                  'Exportiert/Importiert alle lokalen Daten (Übungen, Workouts, Sätze, Journal, Plan). '
+                  'Beim Import wird der aktuelle Bestand ersetzt.',
+                ),
                 const SizedBox(height: 12),
-
                 Row(
                   children: [
                     Expanded(
@@ -95,8 +92,7 @@ class SettingsScreen extends StatelessWidget {
                             builder: (ctx) => AlertDialog(
                               title: const Text('Backup importieren'),
                               content: const Text(
-                                  'Achtung: Der aktuelle Datenbestand wird ersetzt. '
-                                  'Fortfahren?'),
+                                  'Achtung: Der aktuelle Datenbestand wird ersetzt. Fortfahren?'),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx, false),
@@ -110,7 +106,6 @@ class SettingsScreen extends StatelessWidget {
                             ),
                           );
                           if (ok != true) return;
-
                           try {
                             await BackupService.importFromPickedJson(context);
                             if (context.mounted) {
@@ -136,31 +131,11 @@ class SettingsScreen extends StatelessWidget {
 
           const SizedBox(height: 8),
           const ui.SectionHeader('Infos'),
-          ui.AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text('Offline Fitness App', style: TextStyle(fontWeight: FontWeight.w800)),
-                SizedBox(height: 6),
-                Text('Alle Daten lokal. Backup/Restore möglich.'),
-              ],
-            ),
+          const ui.AppCard(
+            child: Text('Offline Fitness App – lokal, schnell, privat.'),
           ),
         ],
       ),
     );
   }
-}
-
-/// Kleiner Inherited-Helper, damit Settings das Theme umschalten kann.
-/// In main.dart registrieren wir ihn um MaterialApp.themeMode zu ändern.
-class _ThemeSwitcher extends InheritedWidget {
-  final void Function(bool dark) setDark;
-  const _ThemeSwitcher({required this.setDark, required super.child, super.key});
-
-  static _ThemeSwitcher? of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<_ThemeSwitcher>();
-
-  @override
-  bool updateShouldNotify(covariant _ThemeSwitcher oldWidget) => false;
 }
