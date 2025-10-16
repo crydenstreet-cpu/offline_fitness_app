@@ -10,7 +10,9 @@ class ExercisesScreen extends StatefulWidget {
 }
 
 class _ExercisesScreenState extends State<ExercisesScreen> {
-  late Future<List<Map<String, dynamic>>> _future;
+  List<Map<String, dynamic>> _items = [];
+  bool _loading = true;
+  bool _reorderMode = false;
 
   @override
   void initState() {
@@ -18,9 +20,13 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
     _reload();
   }
 
-  void _reload() {
-    _future = DB.instance.getExercises();
-    setState(() {});
+  Future<void> _reload() async {
+    setState(() => _loading = true);
+    final list = await DB.instance.getExercises();
+    setState(() {
+      _items = list;
+      _loading = false;
+    });
   }
 
   Future<void> _addOrEditDialog({Map<String, dynamic>? exercise}) async {
@@ -138,8 +144,7 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Übung löschen?'),
         content: Text('„$name“ wird gelöscht.\n'
-            'Verknüpfungen in Workouts werden durch den DB-FK mit gelöscht. '
-            'Sätze in Sessions bleiben erhalten, sofern vorhanden (da sie auf exercise_id referenzieren).'),
+            'Verknüpfungen in Workouts werden durch den DB-FK mit gelöscht.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
           FilledButton.icon(
@@ -156,111 +161,169 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
     }
   }
 
+  // ---- REORDER ----
+  Future<void> _persistOrder() async {
+    final ids = _items.map<int>((e) => e['id'] as int).toList();
+    await DB.instance.updateExercisesOrder(ids);
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      appBar: AppBar(title: const Text('📋 Übungen')),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _future,
-        builder: (context, snap) {
-          if (!snap.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final items = snap.data!;
-          if (items.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.list_alt, size: 40),
-                    const SizedBox(height: 12),
-                    const Text('Noch keine Übungen angelegt.'),
-                    const SizedBox(height: 8),
-                    FilledButton.icon(
-                      onPressed: () => _addOrEditDialog(),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Übung erstellen'),
+      appBar: AppBar(
+        title: const Text('📋 Übungen'),
+        actions: [
+          IconButton(
+            tooltip: _reorderMode ? 'Sortieren beenden' : 'Sortieren',
+            icon: Icon(_reorderMode ? Icons.check : Icons.reorder),
+            onPressed: () async {
+              if (_reorderMode) {
+                await _persistOrder();
+              }
+              setState(() => _reorderMode = !_reorderMode);
+            },
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : (_items.isEmpty)
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.list_alt, size: 40),
+                        const SizedBox(height: 12),
+                        const Text('Noch keine Übungen angelegt.'),
+                        const SizedBox(height: 8),
+                        FilledButton.icon(
+                          onPressed: () => _addOrEditDialog(),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Übung erstellen'),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: () async => _reload(),
+                  child: _reorderMode
+                      ? _buildReorderList()
+                      : _buildNormalList(),
                 ),
-              ),
-            );
-          }
-
-          return RefreshIndicator(
-            onRefresh: () async => _reload(),
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
-              itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (context, i) {
-                final e = items[i];
-                final id = e['id'] as int;
-                final unit = (e['unit'] ?? 'kg').toString();
-
-                return Dismissible(
-                  key: ValueKey('ex_$id'),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.85),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: const Icon(Icons.delete, color: Colors.white),
-                  ),
-                  confirmDismiss: (_) async {
-                    await _confirmDelete(id, e['name'] ?? '');
-                    return false; // wir rufen reload selbst nach Dialog
-                  },
-                  child: AppCard(
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        e['name'] ?? '',
-                        style: const TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                      subtitle: Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text([
-                          if ((e['muscle_group'] ?? '').toString().isNotEmpty) '${e['muscle_group']}',
-                          'Std.-Sätze: ${e['default_sets'] ?? '-'}',
-                          'Std.-Wdh: ${e['default_reps'] ?? '-'}',
-                          'Einheit: $unit',
-                        ].join('  •  ')),
-                      ),
-                      trailing: Wrap(
-                        spacing: 6,
-                        children: [
-                          IconButton(
-                            tooltip: 'Bearbeiten',
-                            icon: const Icon(Icons.edit_outlined),
-                            onPressed: () => _addOrEditDialog(exercise: e),
-                          ),
-                          IconButton(
-                            tooltip: 'Löschen',
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () => _confirmDelete(id, e['name'] ?? ''),
-                          ),
-                        ],
-                      ),
-                      onTap: () => _addOrEditDialog(exercise: e),
-                    ),
-                  ),
-                );
-              },
+      fab: _reorderMode
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _addOrEditDialog,
+              icon: const Icon(Icons.add),
+              label: const Text('Übung'),
             ),
-          );
-        },
-      ),
-      fab: FloatingActionButton.extended(
-        onPressed: _addOrEditDialog,
-        icon: const Icon(Icons.add),
-        label: const Text('Übung'),
-      ),
+    );
+  }
+
+  Widget _buildNormalList() {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 90),
+      itemCount: _items.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, i) {
+        final e = _items[i];
+        final id = e['id'] as int;
+        final unit = (e['unit'] ?? 'kg').toString();
+
+        return Dismissible(
+          key: ValueKey('ex_$id'),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.85),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: const Icon(Icons.delete, color: Colors.white),
+          ),
+          confirmDismiss: (_) async {
+            await _confirmDelete(id, e['name'] ?? '');
+            return false;
+          },
+          child: AppCard(
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                e['name'] ?? '',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text([
+                  if ((e['muscle_group'] ?? '').toString().isNotEmpty) '${e['muscle_group']}',
+                  'Std.-Sätze: ${e['default_sets'] ?? '-'}',
+                  'Std.-Wdh: ${e['default_reps'] ?? '-'}',
+                  'Einheit: $unit',
+                ].join('  •  ')),
+              ),
+              trailing: Wrap(
+                spacing: 6,
+                children: [
+                  IconButton(
+                    tooltip: 'Bearbeiten',
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () => _addOrEditDialog(exercise: e),
+                  ),
+                  IconButton(
+                    tooltip: 'Löschen',
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: () => _confirmDelete(id, e['name'] ?? ''),
+                  ),
+                ],
+              ),
+              onTap: () => _addOrEditDialog(exercise: e),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildReorderList() {
+    // ReorderableListView benötigt eine Liste von Widgets mit Keys
+    return ReorderableListView(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+      proxyDecorator: (child, index, animation) {
+        // leichte Vergrößerung beim Ziehen
+        return Material(
+          color: Colors.transparent,
+          child: Transform.scale(
+            scale: 1.02,
+            child: child,
+          ),
+        );
+      },
+      onReorder: (oldIndex, newIndex) {
+        setState(() {
+          if (newIndex > oldIndex) newIndex -= 1;
+          final item = _items.removeAt(oldIndex);
+          _items.insert(newIndex, item);
+        });
+      },
+      children: [
+        for (final e in _items)
+          AppCard(
+            key: ValueKey('ex_re_${e['id']}'),
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.drag_indicator),
+              title: Text(e['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: (e['muscle_group'] != null && (e['muscle_group'] as String).isNotEmpty)
+                  ? Text('${e['muscle_group']}')
+                  : null,
+              trailing: const Icon(Icons.reorder),
+            ),
+          ),
+      ],
     );
   }
 }
