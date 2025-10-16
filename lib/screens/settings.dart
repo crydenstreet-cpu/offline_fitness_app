@@ -3,6 +3,33 @@ import 'package:flutter/material.dart';
 import 'package:offline_fitness_app/theme/theme_controller.dart';
 import 'package:offline_fitness_app/ui/design.dart' as ui;
 
+/// Fallback-Header direkt in dieser Datei,
+/// damit es keine Abhängigkeit zu ui.SectionHeader gibt.
+class SettingsSectionHeader extends StatelessWidget {
+  final String text;
+  const SettingsSectionHeader(this.text, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = theme.brightness == Brightness.light
+        ? const Color(0xFF5E6676) // textLightMuted
+        : const Color(0xFFB7BDCA); // textDarkMuted
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontWeight: FontWeight.w900,
+          fontSize: 14,
+          color: color,
+          letterSpacing: 0.2,
+        ),
+      ),
+    );
+  }
+}
+
 class SettingsScreen extends StatelessWidget {
   final ThemeController controller;
   const SettingsScreen({super.key, required this.controller});
@@ -14,7 +41,7 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         children: [
           // Abschnitt: Darstellung
-          ui.SectionHeader('Darstellung'),
+          const SettingsSectionHeader('Darstellung'),
           ValueListenableBuilder<ThemeMode>(
             valueListenable: controller,
             builder: (context, mode, _) => Card(
@@ -48,7 +75,7 @@ class SettingsScreen extends StatelessWidget {
           ),
 
           // Abschnitt: Infos
-          ui.SectionHeader('Infos'),
+          const SettingsSectionHeader('Infos'),
           Card(
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: const ListTile(
