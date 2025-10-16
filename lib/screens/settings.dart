@@ -1,36 +1,60 @@
+// lib/screens/settings.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../theme/theme_controller.dart';
+import '../ui/design.dart';
 
 class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
+  final ThemeController controller;
+  const SettingsScreen({super.key, required this.controller});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeController>(context);
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Einstellungen')),
+    return AppScaffold(
+      appBar: AppBar(title: const Text('⚙️ Einstellungen')),
       body: ListView(
         children: [
-          const ListTile(title: Text('Darstellung')),
-          RadioListTile<ThemeMode>(
-            title: const Text('System'),
-            value: ThemeMode.system,
-            groupValue: theme.mode,
-            onChanged: (v) => theme.setMode(v ?? ThemeMode.system),
+          const SectionHeader('Darstellung'),
+          ValueListenableBuilder<ThemeMode>(
+            valueListenable: controller,
+            builder: (context, mode, _) => Card(
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Column(
+                children: [
+                  RadioListTile<ThemeMode>(
+                    value: ThemeMode.system,
+                    groupValue: mode,
+                    title: const Text('System'),
+                    subtitle: const Text('Folgt der Geräte-Einstellung'),
+                    onChanged: (m) => controller.setMode(m!),
+                  ),
+                  const Divider(height: 0),
+                  RadioListTile<ThemeMode>(
+                    value: ThemeMode.light,
+                    groupValue: mode,
+                    title: const Text('Hell'),
+                    onChanged: (m) => controller.setMode(m!),
+                  ),
+                  const Divider(height: 0),
+                  RadioListTile<ThemeMode>(
+                    value: ThemeMode.dark,
+                    groupValue: mode,
+                    title: const Text('Dunkel'),
+                    onChanged: (m) => controller.setMode(m!),
+                  ),
+                ],
+              ),
+            ),
           ),
-          RadioListTile<ThemeMode>(
-            title: const Text('Hell'),
-            value: ThemeMode.light,
-            groupValue: theme.mode,
-            onChanged: (v) => theme.setMode(v ?? ThemeMode.light),
-          ),
-          RadioListTile<ThemeMode>(
-            title: const Text('Dunkel'),
-            value: ThemeMode.dark,
-            groupValue: theme.mode,
-            onChanged: (v) => theme.setMode(v ?? ThemeMode.dark),
+
+          const SectionHeader('Infos'),
+          Card(
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: ListTile(
+              title: const Text('App-Design'),
+              subtitle: const Text('Grau/Schwarz/Rot, Material 3, Gradient-Background'),
+              trailing: const Icon(Icons.color_lens),
+              onTap: () {},
+            ),
           ),
         ],
       ),
