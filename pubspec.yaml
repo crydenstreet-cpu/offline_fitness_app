@@ -18,6 +18,9 @@ dependencies:
   flutter_animate: ^4.5.0
   shared_preferences: ^2.2.3
   provider: ^6.1.2
+  path_provider: ^2.1.4
+  file_picker: ^8.1.2
+  share_plus: ^10.0.2
   
 dev_dependencies:
   flutter_test:
