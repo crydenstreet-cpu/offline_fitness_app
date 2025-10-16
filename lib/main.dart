@@ -36,9 +36,9 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Offline Fitness App',
-      theme: theme.lightTheme,     // hell
-      darkTheme: theme.darkTheme,  // dunkel
-      themeMode: theme.mode,       // <-- GANZ WICHTIG
+      theme: buildLightTheme(),   // aus design.dart
+      darkTheme: buildDarkTheme(),// aus design.dart
+      themeMode: ThemeMode.dark,  // ← zum Test hart auf dunkel
       home: const _NavWithDrawer(),
     );
   }
