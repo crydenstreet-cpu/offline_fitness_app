@@ -1,3 +1,4 @@
+// lib/db/database_helper.dart
 import 'dart:async';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
@@ -19,7 +20,7 @@ class DB {
 
     return openDatabase(
       path,
-      version: 6, // ⬅️ v6: exercises.sort_order + neue Helpers
+      version: 5, // v5: motivation-Spalte im Journal
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -33,7 +34,6 @@ class DB {
             unit TEXT DEFAULT 'kg',
             default_sets INTEGER DEFAULT 3,
             default_reps INTEGER DEFAULT 10,
-            sort_order INTEGER,                 -- ⬅️ NEU
             created_at TEXT
           );
         ''');
@@ -149,21 +149,6 @@ class DB {
             await db.execute('ALTER TABLE journal_entries ADD COLUMN motivation INTEGER;');
           }
         }
-        if (oldVersion < 6) {
-          final cols = await db.rawQuery('PRAGMA table_info(exercises);');
-          final hasSortOrder = cols.any((c) => (c['name'] as String?) == 'sort_order');
-          if (!hasSortOrder) {
-            await db.execute('ALTER TABLE exercises ADD COLUMN sort_order INTEGER;');
-            // Initial sort_order: nach created_at (alt->neu), dann index
-            final rows = await db.query('exercises', orderBy: 'created_at ASC, id ASC');
-            final batch = db.batch();
-            var idx = 0;
-            for (final r in rows) {
-              batch.update('exercises', {'sort_order': idx++}, where: 'id = ?', whereArgs: [r['id']]);
-            }
-            await batch.commit(noResult: true);
-          }
-        }
       },
     );
   }
@@ -172,16 +157,12 @@ class DB {
   Future<int> insertExercise(Map<String, dynamic> data) async {
     final db = await database;
     data['created_at'] ??= DateTime.now().toIso8601String();
-    // Wenn kein sort_order übergeben wurde: ans Ende setzen
-    final maxRow = await db.rawQuery('SELECT MAX(COALESCE(sort_order, -1)) as m FROM exercises;');
-    final next = ((maxRow.first['m'] as int?) ?? -1) + 1;
-    data['sort_order'] ??= next;
     return db.insert('exercises', data, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<Map<String, dynamic>>> getExercises() async {
     final db = await database;
-    return db.query('exercises', orderBy: 'COALESCE(sort_order, 999999), created_at DESC, id DESC');
+    return db.query('exercises', orderBy: 'created_at DESC');
   }
 
   Future<int> updateExercise(int id, Map<String, dynamic> data) async {
@@ -192,16 +173,6 @@ class DB {
   Future<int> deleteExercise(int id) async {
     final db = await database;
     return db.delete('exercises', where: 'id = ?', whereArgs: [id]);
-  }
-
-  /// ⬅️ NEU: Reihenfolge dauerhaft speichern (ids == neue Reihenfolge)
-  Future<void> updateExercisesOrder(List<int> idsInOrder) async {
-    final db = await database;
-    final batch = db.batch();
-    for (var i = 0; i < idsInOrder.length; i++) {
-      batch.update('exercises', {'sort_order': i}, where: 'id = ?', whereArgs: [idsInOrder[i]]);
-    }
-    await batch.commit(noResult: true);
   }
 
   // -------- WORKOUTS --------
@@ -305,6 +276,7 @@ class DB {
     );
   }
 
+  /// Letzter Satz dieser Übung in dieser Session (für Auto-Vorbelegung)
   Future<Map<String, dynamic>?> lastSetForExerciseInSession(int sessionId, int exerciseId) async {
     final db = await database;
     final rows = await db.query(
@@ -317,6 +289,7 @@ class DB {
     return rows.isNotEmpty ? rows.first : null;
   }
 
+  /// Einen Satz aktualisieren (z. B. Reps/Gewicht/Notiz anpassen)
   Future<int> updateSet(int id, {int? reps, double? weight, String? note}) async {
     final db = await database;
     final data = <String, Object?>{};
@@ -327,9 +300,28 @@ class DB {
     return db.update('workout_sets', data, where: 'id = ?', whereArgs: [id]);
   }
 
+  /// Einen Satz löschen
   Future<int> deleteSet(int id) async {
     final db = await database;
     return db.delete('workout_sets', where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Historisch: letztes verwendetes Gewicht für eine Übung (über alle Sessions)
+  Future<double?> lastWeightForExercise(int exerciseId) async {
+    final db = await database;
+    final res = await db.rawQuery('''
+      SELECT ws.weight
+      FROM workout_sets ws
+      JOIN sessions s ON s.id = ws.session_id
+      WHERE ws.exercise_id = ?
+      ORDER BY s.started_at DESC, ws.set_index DESC
+      LIMIT 1
+    ''', [exerciseId]);
+    if (res.isEmpty) return null;
+    final w = res.first['weight'];
+    return (w is num) ? w.toDouble() : double.tryParse('$w');
+    // Hinweis: Diese Methode ist identisch mit der oben genannten, bleibt
+    // aber separat, weil diverse Screens exakt diesen Namen erwarten.
   }
 
   // -------- JOURNAL --------
@@ -458,6 +450,24 @@ class DB {
     ''', [exerciseId, limitDays]);
   }
 
+  /// Reps- & Gewichts-Kennzahlen pro Tag (tatsächliche Sätze)
+  Future<List<Map<String, dynamic>>> repsAndWeightPerDayForExercise(
+    int exerciseId, {int limitDays = 30}
+  }) async {
+    final db = await database;
+    return db.rawQuery('''
+      SELECT substr(s.started_at, 1, 10) AS day,
+             AVG(ws.reps)                 AS avg_reps,
+             MAX(ws.weight)               AS max_weight
+      FROM workout_sets ws
+      JOIN sessions s ON s.id = ws.session_id
+      WHERE ws.exercise_id = ?
+      GROUP BY day
+      ORDER BY day DESC
+      LIMIT ?
+    ''', [exerciseId, limitDays]);
+  }
+
   // -------- SCHEDULE --------
   Future<void> upsertSchedule(String ymd, int workoutId, {String? note}) async {
     final db = await database;
@@ -471,7 +481,7 @@ class DB {
   Future<void> generateSchedule({
     required DateTime startDate,
     required int weeks,
-    required Map<int, int?> weekdayToWorkoutId,
+    required Map<int, int?> weekdayToWorkoutId, // 1=Mo..7=So -> workoutId?
   }) async {
     final db = await database;
     final batch = db.batch();
@@ -514,6 +524,83 @@ class DB {
   Future<int> deleteSchedule(String ymd) async {
     final db = await database;
     return db.delete('workout_schedule', where: 'date = ?', whereArgs: [ymd]);
+  }
+
+  // -------- DASHBOARD / STATS HELPERS --------
+  Future<Map<String, dynamic>?> lastSessionSummary() async {
+    final db = await database;
+    final rows = await db.rawQuery('''
+      SELECT s.id as session_id,
+             s.started_at as started_at,
+             COUNT(ws.id) as sets_count,
+             COALESCE(SUM(ws.weight * ws.reps), 0) as total_volume
+      FROM sessions s
+      LEFT JOIN workout_sets ws ON ws.session_id = s.id
+      ORDER BY s.started_at DESC
+      LIMIT 1
+    ''');
+    return rows.isNotEmpty ? rows.first : null;
+  }
+
+  Future<Map<String, dynamic>?> nextPlannedWorkout() async {
+    final db = await database;
+    final today = DateTime.now();
+    final ymd = _ymd(DateTime(today.year, today.month, today.day));
+    final rows = await db.rawQuery('''
+      SELECT s.date, s.workout_id, w.name AS workout_name
+      FROM workout_schedule s
+      JOIN workouts w ON w.id = s.workout_id
+      WHERE s.date >= ?
+      ORDER BY s.date ASC
+      LIMIT 1
+    ''', [ymd]);
+    return rows.isNotEmpty ? rows.first : null;
+  }
+
+  Future<List<Map<String, dynamic>>> volumeByDayAll({int days = 14}) async {
+    final db = await database;
+    final since = DateTime.now().subtract(Duration(days: days - 1));
+    final sinceIso = since.toIso8601String().substring(0, 10); // yyyy-MM-dd
+    return db.rawQuery('''
+      SELECT substr(s.started_at, 1, 10) AS day,
+             COALESCE(SUM(ws.weight * ws.reps), 0) AS volume
+      FROM sessions s
+      LEFT JOIN workout_sets ws ON ws.session_id = s.id
+      WHERE substr(s.started_at,1,10) >= ?
+      GROUP BY day
+      ORDER BY day ASC
+    ''', [sinceIso]);
+  }
+
+  Future<double?> averageMoodLast7Days() async {
+    final db = await database;
+    final since = DateTime.now().subtract(const Duration(days: 6));
+    final rows = await db.rawQuery('''
+      SELECT AVG(mood) as avg_mood
+      FROM journal_entries
+      WHERE date >= ?
+    ''', [_ymd(since)]);
+    if (rows.isEmpty) return null;
+    final v = rows.first['avg_mood'];
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    return double.tryParse('$v');
+  }
+
+  Future<int> totalVolumeBetween(DateTime from, DateTime to) async {
+    final db = await database;
+    final fromIso = from.toIso8601String();
+    final toIso = to.toIso8601String();
+    final rows = await db.rawQuery('''
+      SELECT COALESCE(SUM(ws.weight * ws.reps),0) as vol
+      FROM workout_sets ws
+      JOIN sessions s ON s.id = ws.session_id
+      WHERE s.started_at >= ? AND s.started_at < ?
+    ''', [fromIso, toIso]);
+    if (rows.isEmpty) return 0;
+    final v = rows.first['vol'];
+    if (v is num) return v.toInt();
+    return int.tryParse('$v') ?? 0;
   }
 
   // -------- Utils --------
