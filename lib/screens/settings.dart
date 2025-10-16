@@ -13,7 +13,8 @@ class SettingsScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('⚙️ Einstellungen')),
       body: ListView(
         children: [
-          const SectionHeader('Darstellung'),
+          // Abschnitt: Darstellung
+          SectionHeader('Darstellung'),
           ValueListenableBuilder<ThemeMode>(
             valueListenable: controller,
             builder: (context, mode, _) => Card(
@@ -46,14 +47,14 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
 
-          const SectionHeader('Infos'),
+          // Abschnitt: Infos
+          SectionHeader('Infos'),
           Card(
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: ListTile(
-              title: const Text('App-Design'),
-              subtitle: const Text('Grau/Schwarz/Rot, Material 3, Gradient-Background'),
-              trailing: const Icon(Icons.color_lens),
-              onTap: () {},
+            child: const ListTile(
+              title: Text('App-Design'),
+              subtitle: Text('Grau/Schwarz/Rot, Material 3, Gradient-Background'),
+              trailing: Icon(Icons.color_lens),
             ),
           ),
         ],
