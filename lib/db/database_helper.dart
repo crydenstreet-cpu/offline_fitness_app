@@ -206,6 +206,19 @@ class DB {
     return db.query('workouts', orderBy: 'created_at DESC');
   }
 
+  /// ⬅️ NEU: Workout-Namen bearbeiten
+  Future<int> updateWorkoutName(int id, String name) async {
+    final db = await database;
+    return db.update('workouts', {'name': name}, where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// ⬅️ NEU: Workout löschen (verknüpfte Einträge in workout_exercises & workout_schedule
+  /// werden dank ON DELETE CASCADE automatisch gelöscht. Sessions werden auf NULL gesetzt.)
+  Future<int> deleteWorkoutById(int id) async {
+    final db = await database;
+    return db.delete('workouts', where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<int> addExerciseToWorkout(int workoutId, int exerciseId, {int? position}) async {
     final db = await database;
     final linkId = await db.insert('workout_exercises', {
@@ -461,7 +474,7 @@ class DB {
     ''', [exerciseId, limitDays]);
   }
 
-  /// ⬅️ KORREKTE SIGNATUR (vorher fehlende Klammer) – Ø-Reps + Max-Weight pro Tag
+  /// Ø-Reps + Max-Weight pro Tag (für Stats)
   Future<List<Map<String, dynamic>>> repsAndWeightPerDayForExercise(
     int exerciseId, {int limitDays = 30}
   ) async {
