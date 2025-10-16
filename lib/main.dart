@@ -1,6 +1,10 @@
-// lib/main.dart (Ausschnitt)
+// lib/main.dart
 import 'package:flutter/material.dart';
-import 'ui/design.dart';
+import 'package:intl/date_symbol_data_local.dart';
+
+import 'ui/design.dart' as ui;
+import 'theme/theme_switcher.dart';
+
 import 'screens/dashboard.dart';
 import 'screens/plan_hub.dart';
 import 'screens/workouts.dart';
@@ -11,6 +15,7 @@ import 'screens/settings.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('de_DE');
   runApp(const RootApp());
 }
 
@@ -22,18 +27,17 @@ class RootApp extends StatefulWidget {
 
 class _RootAppState extends State<RootApp> {
   bool _dark = false;
-
   void _setDark(bool v) => setState(() => _dark = v);
 
   @override
   Widget build(BuildContext context) {
-    return _ThemeSwitcher(
+    return ThemeSwitcher(
       setDark: _setDark,
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'Offline Fitness App',
-        theme: buildLightTheme(),
-        darkTheme: buildDarkTheme(),
+        theme: ui.buildLightTheme(),
+        darkTheme: ui.buildDarkTheme(),
         themeMode: _dark ? ThemeMode.dark : ThemeMode.light,
         home: const _NavWithDrawer(),
       ),
@@ -52,12 +56,12 @@ class _NavWithDrawerState extends State<_NavWithDrawer> {
 
   final _pages = const <Widget>[
     DashboardScreen(),   // Home
-    PlanHubScreen(),     // Plan
+    PlanHubScreen(),     // Plan (Monat & Heute)
     WorkoutsScreen(),    // Workouts
     ExercisesScreen(),   // Übungen
     StatsScreen(),       // Stats
     JournalScreen(),     // Tagebuch
-    SettingsScreen(),    // ⬅️ Einstellungen
+    SettingsScreen(),    // Einstellungen
   ];
 
   String get _title {
@@ -69,8 +73,8 @@ class _NavWithDrawerState extends State<_NavWithDrawer> {
       case 4: return '📈 Stats';
       case 5: return '📔 Tagebuch';
       case 6: return '⚙️ Einstellungen';
+      default: return 'App';
     }
-    return 'App';
   }
 
   void _go(int i) {
