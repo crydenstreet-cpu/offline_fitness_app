@@ -1,7 +1,7 @@
 // lib/screens/settings.dart
 import 'package:flutter/material.dart';
-import '../theme/theme_controller.dart';
-import '../ui/design.dart';
+import 'package:offline_fitness_app/theme/theme_controller.dart';
+import 'package:offline_fitness_app/ui/design.dart' as ui;
 
 class SettingsScreen extends StatelessWidget {
   final ThemeController controller;
@@ -9,12 +9,12 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
+    return ui.AppScaffold(
       appBar: AppBar(title: const Text('⚙️ Einstellungen')),
       body: ListView(
         children: [
           // Abschnitt: Darstellung
-          SectionHeader('Darstellung'),
+          ui.SectionHeader('Darstellung'),
           ValueListenableBuilder<ThemeMode>(
             valueListenable: controller,
             builder: (context, mode, _) => Card(
@@ -48,7 +48,7 @@ class SettingsScreen extends StatelessWidget {
           ),
 
           // Abschnitt: Infos
-          SectionHeader('Infos'),
+          ui.SectionHeader('Infos'),
           Card(
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: const ListTile(
