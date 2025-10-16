@@ -1,10 +1,6 @@
-// lib/main.dart
+// lib/main.dart (Ausschnitt)
 import 'package:flutter/material.dart';
-import 'package:intl/date_symbol_data_local.dart';
-
-import 'ui/design.dart'; // buildLightTheme / buildDarkTheme / AppScaffold / SectionHeader etc.
-import 'theme/theme_controller.dart';
-
+import 'ui/design.dart';
 import 'screens/dashboard.dart';
 import 'screens/plan_hub.dart';
 import 'screens/workouts.dart';
@@ -15,38 +11,38 @@ import 'screens/settings.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeDateFormatting('de_DE');
-
-  final themeController = await ThemeController.init(); // ⬅️ lädt gespeicherte Wahl
-
-  runApp(MyApp(controller: themeController));
+  runApp(const RootApp());
 }
 
-class MyApp extends StatelessWidget {
-  final ThemeController controller;
-  const MyApp({super.key, required this.controller});
+class RootApp extends StatefulWidget {
+  const RootApp({super.key});
+  @override
+  State<RootApp> createState() => _RootAppState();
+}
+
+class _RootAppState extends State<RootApp> {
+  bool _dark = false;
+
+  void _setDark(bool v) => setState(() => _dark = v);
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: controller,
-      builder: (context, mode, _) {
-        return MaterialApp(
-          debugShowCheckedModeBanner: false,
-          title: 'Offline Fitness App',
-          theme: buildLightTheme(),
-          darkTheme: buildDarkTheme(),
-          themeMode: mode, // ⬅️ hier passiert der Umschalter
-          home: _NavWithDrawer(controller: controller),
-        );
-      },
+    return _ThemeSwitcher(
+      setDark: _setDark,
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Offline Fitness App',
+        theme: buildLightTheme(),
+        darkTheme: buildDarkTheme(),
+        themeMode: _dark ? ThemeMode.dark : ThemeMode.light,
+        home: const _NavWithDrawer(),
+      ),
     );
   }
 }
 
 class _NavWithDrawer extends StatefulWidget {
-  final ThemeController controller;
-  const _NavWithDrawer({super.key, required this.controller});
+  const _NavWithDrawer({super.key});
   @override
   State<_NavWithDrawer> createState() => _NavWithDrawerState();
 }
@@ -54,13 +50,14 @@ class _NavWithDrawer extends StatefulWidget {
 class _NavWithDrawerState extends State<_NavWithDrawer> {
   int _index = 0;
 
-  late final List<Widget> _pages = [
-    const DashboardScreen(),
-    const PlanHubScreen(),
-    const WorkoutsScreen(),
-    const ExercisesScreen(),
-    const StatsScreen(),
-    const JournalScreen(),
+  final _pages = const <Widget>[
+    DashboardScreen(),   // Home
+    PlanHubScreen(),     // Plan
+    WorkoutsScreen(),    // Workouts
+    ExercisesScreen(),   // Übungen
+    StatsScreen(),       // Stats
+    JournalScreen(),     // Tagebuch
+    SettingsScreen(),    // ⬅️ Einstellungen
   ];
 
   String get _title {
@@ -71,8 +68,9 @@ class _NavWithDrawerState extends State<_NavWithDrawer> {
       case 3: return '📋 Übungen';
       case 4: return '📈 Stats';
       case 5: return '📔 Tagebuch';
-      default: return 'App';
+      case 6: return '⚙️ Einstellungen';
     }
+    return 'App';
   }
 
   void _go(int i) {
@@ -82,21 +80,9 @@ class _NavWithDrawerState extends State<_NavWithDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
+    return ui.AppScaffold(
       appBar: AppBar(title: Text(_title)),
-      drawer: _AppDrawer(
-        selected: _index,
-        onSelect: _go,
-        onOpenSettings: () {
-          Navigator.pop(context);
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => SettingsScreen(controller: widget.controller),
-            ),
-          );
-        },
-      ),
+      drawer: _AppDrawer(selected: _index, onSelect: _go),
       body: _pages[_index],
     );
   }
@@ -105,28 +91,18 @@ class _NavWithDrawerState extends State<_NavWithDrawer> {
 class _AppDrawer extends StatelessWidget {
   final int selected;
   final ValueChanged<int> onSelect;
-  final VoidCallback onOpenSettings;
-  const _AppDrawer({
-    required this.selected,
-    required this.onSelect,
-    required this.onOpenSettings,
-  });
+  const _AppDrawer({required this.selected, required this.onSelect});
 
   @override
   Widget build(BuildContext context) {
-    final selColor = Theme.of(context).colorScheme.primary.withOpacity(0.12);
-
     Widget item({required IconData icon, required String label, required int idx}) {
       final isSel = selected == idx;
       return Material(
-        color: isSel ? selColor : Colors.transparent,
+        color: isSel ? Theme.of(context).colorScheme.primary.withOpacity(0.12) : Colors.transparent,
         child: ListTile(
           leading: Icon(icon),
           title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-          onTap: () {
-            Navigator.pop(context);
-            onSelect(idx);
-          },
+          onTap: () { Navigator.pop(context); onSelect(idx); },
         ),
       );
     }
@@ -136,30 +112,19 @@ class _AppDrawer extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.symmetric(vertical: 8),
           children: [
-            ListTile(
-              title: const Text('Offline Fitness App', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-              subtitle: const Text('Alles an einem Ort'),
-              trailing: IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(context),
-                tooltip: 'Menü schließen',
-              ),
+            const ListTile(
+              title: Text('Offline Fitness App', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              subtitle: Text('Alles an einem Ort'),
             ),
             const Divider(),
-
-            item(icon: Icons.home,             label: 'Home',     idx: 0),
-            item(icon: Icons.event_note,       label: 'Plan',     idx: 1),
-            item(icon: Icons.fitness_center,   label: 'Workouts', idx: 2),
-            item(icon: Icons.list_alt,         label: 'Übungen',  idx: 3),
-            item(icon: Icons.bar_chart,        label: 'Stats',    idx: 4),
-            item(icon: Icons.book,             label: 'Tagebuch', idx: 5),
-
+            item(icon: Icons.home,           label: 'Home',          idx: 0),
+            item(icon: Icons.event_note,     label: 'Plan',          idx: 1),
+            item(icon: Icons.fitness_center, label: 'Workouts',      idx: 2),
+            item(icon: Icons.list_alt,       label: 'Übungen',       idx: 3),
+            item(icon: Icons.bar_chart,      label: 'Stats',         idx: 4),
+            item(icon: Icons.book,           label: 'Tagebuch',      idx: 5),
             const Divider(),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Einstellungen'),
-              onTap: onOpenSettings,
-            ),
+            item(icon: Icons.settings,       label: 'Einstellungen', idx: 6),
           ],
         ),
       ),
