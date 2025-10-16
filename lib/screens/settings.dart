@@ -1,91 +1,166 @@
 // lib/screens/settings.dart
 import 'package:flutter/material.dart';
-import 'package:offline_fitness_app/theme/theme_controller.dart';
-import 'package:offline_fitness_app/ui/design.dart' as ui;
+import '../ui/design.dart' as ui;
+import '../utils/backup.dart';
 
-/// Fallback-Header direkt in dieser Datei,
-/// damit es keine Abhängigkeit zu ui.SectionHeader gibt.
-class SettingsSectionHeader extends StatelessWidget {
-  final String text;
-  const SettingsSectionHeader(this.text, {super.key});
+class SettingsScreen extends StatelessWidget {
+  const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = theme.brightness == Brightness.light
-        ? const Color(0xFF5E6676) // textLightMuted
-        : const Color(0xFFB7BDCA); // textDarkMuted
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontWeight: FontWeight.w900,
-          fontSize: 14,
-          color: color,
-          letterSpacing: 0.2,
-        ),
-      ),
-    );
-  }
-}
+    final isDark = theme.brightness == Brightness.dark;
 
-class SettingsScreen extends StatelessWidget {
-  final ThemeController controller;
-  const SettingsScreen({super.key, required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
     return ui.AppScaffold(
-      appBar: AppBar(title: const Text('⚙️ Einstellungen')),
+      appBar: AppBar(title: const Text('Einstellungen')),
       body: ListView(
+        padding: const EdgeInsets.only(bottom: 24),
         children: [
-          // Abschnitt: Darstellung
-          const SettingsSectionHeader('Darstellung'),
-          ValueListenableBuilder<ThemeMode>(
-            valueListenable: controller,
-            builder: (context, mode, _) => Card(
-              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Column(
-                children: [
-                  RadioListTile<ThemeMode>(
-                    value: ThemeMode.system,
-                    groupValue: mode,
-                    title: const Text('System'),
-                    subtitle: const Text('Folgt der Geräte-Einstellung'),
-                    onChanged: (m) => controller.setMode(m!),
-                  ),
-                  const Divider(height: 0),
-                  RadioListTile<ThemeMode>(
-                    value: ThemeMode.light,
-                    groupValue: mode,
-                    title: const Text('Hell'),
-                    onChanged: (m) => controller.setMode(m!),
-                  ),
-                  const Divider(height: 0),
-                  RadioListTile<ThemeMode>(
-                    value: ThemeMode.dark,
-                    groupValue: mode,
-                    title: const Text('Dunkel'),
-                    onChanged: (m) => controller.setMode(m!),
-                  ),
-                ],
-              ),
+          const ui.SectionHeader('Darstellung'),
+
+          ui.AppCard(
+            child: Row(
+              children: [
+                const Icon(Icons.brightness_6_rounded),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text('Theme (Hell/Dunkel)',
+                      style: TextStyle(fontWeight: FontWeight.w800)),
+                ),
+                SegmentedButton<Brightness>(
+                  segments: const [
+                    ButtonSegment(value: Brightness.light, label: Text('Hell')),
+                    ButtonSegment(value: Brightness.dark, label: Text('Dunkel')),
+                  ],
+                  selected: {isDark ? Brightness.dark : Brightness.light},
+                  onSelectionChanged: (sel) {
+                    final wantDark = sel.first == Brightness.dark;
+                    // Systemweite Theme-Umstellung via Inherited ThemeMode (einfachste Variante):
+                    // => wir nutzen MaterialApp.themeMode über Navigator state
+                    // Hier: wir triggern eine Route-Neuaufbau-Callback, den du in main.dart gesetzt hast.
+                    _ThemeSwitcher.of(context)?.setDark(wantDark);
+                  },
+                ),
+              ],
             ),
           ),
 
-          // Abschnitt: Infos
-          const SettingsSectionHeader('Infos'),
-          Card(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: const ListTile(
-              title: Text('App-Design'),
-              subtitle: Text('Grau/Schwarz/Rot, Material 3, Gradient-Background'),
-              trailing: Icon(Icons.color_lens),
+          const SizedBox(height: 8),
+          const ui.SectionHeader('Backup'),
+
+          ui.AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Daten-Backup', style: TextStyle(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                const Text(
+                    'Exportiere alle lokalen Daten (Übungen, Workouts, Sätze, Journal, Plan) '
+                    'als JSON-Datei. Beim Import wird der aktuelle Datenbestand ersetzt.'),
+                const SizedBox(height: 12),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: ui.AppButton3D(
+                        label: 'Backup exportieren',
+                        icon: Icons.file_upload,
+                        onPressed: () async {
+                          try {
+                            await BackupService.exportToJsonFile(alsoShare: true);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Backup exportiert.')),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Fehler beim Export: $e')),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ui.AppButton3D(
+                        label: 'Backup importieren',
+                        icon: Icons.file_download,
+                        filled: false,
+                        onPressed: () async {
+                          final ok = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Backup importieren'),
+                              content: const Text(
+                                  'Achtung: Der aktuelle Datenbestand wird ersetzt. '
+                                  'Fortfahren?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('Abbrechen'),
+                                ),
+                                FilledButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('Importieren'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (ok != true) return;
+
+                          try {
+                            await BackupService.importFromPickedJson(context);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Backup importiert.')),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Fehler beim Import: $e')),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 8),
+          const ui.SectionHeader('Infos'),
+          ui.AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text('Offline Fitness App', style: TextStyle(fontWeight: FontWeight.w800)),
+                SizedBox(height: 6),
+                Text('Alle Daten lokal. Backup/Restore möglich.'),
+              ],
             ),
           ),
         ],
       ),
     );
   }
+}
+
+/// Kleiner Inherited-Helper, damit Settings das Theme umschalten kann.
+/// In main.dart registrieren wir ihn um MaterialApp.themeMode zu ändern.
+class _ThemeSwitcher extends InheritedWidget {
+  final void Function(bool dark) setDark;
+  const _ThemeSwitcher({required this.setDark, required super.child, super.key});
+
+  static _ThemeSwitcher? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_ThemeSwitcher>();
+
+  @override
+  bool updateShouldNotify(covariant _ThemeSwitcher oldWidget) => false;
 }
