@@ -1,12 +1,14 @@
+// lib/screens/plan_hub.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-
-import '../ui/design.dart';
+import 'package:offline_fitness_app/ui/design.dart' as ui;
 import 'calendar_month.dart';
 import 'plan_list.dart';
 
-/// Tab-Container: Monat & Heute.
-/// Nutzt AppScaffold => dein Dark/Gradient-Design greift wieder.
+/// ---------------------------
+/// PlanHubScreen – Tab-Container für Monat & Heute
+/// mit AppScaffold (3D-Design, Gradient, Dark/Light)
+/// ---------------------------
 class PlanHubScreen extends StatefulWidget {
   const PlanHubScreen({super.key});
 
@@ -14,33 +16,44 @@ class PlanHubScreen extends StatefulWidget {
   State<PlanHubScreen> createState() => _PlanHubScreenState();
 }
 
-class _PlanHubScreenState extends State<PlanHubScreen> {
+class _PlanHubScreenState extends State<PlanHubScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tab;
+
+  @override
+  void initState() {
+    super.initState();
+    _tab = TabController(length: 2, vsync: this);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
+    return ui.AppScaffold(
       appBar: AppBar(
-        title: const Text('Plan'),
-        bottom: const TabBar(
-          tabs: [
+        title: const Text('🗓️ Plan'),
+        bottom: TabBar(
+          controller: _tab,
+          tabs: const [
             Tab(icon: Icon(Icons.calendar_month), text: 'Monat'),
             Tab(icon: Icon(Icons.today), text: 'Heute'),
           ],
         ),
       ),
-      body: const DefaultTabController(
-        length: 2,
-        child: TabBarView(
-          children: [
-            CalendarMonthScreen(),
-            _TodayPlanTab(), // liefert PlanList + Planen-Button
-          ],
-        ),
+      body: TabBarView(
+        controller: _tab,
+        children: const [
+          CalendarMonthScreen(),
+          _TodayPlanTab(), // liefert PlanList + Datum-Navigation
+        ],
       ),
     );
   }
 }
 
-/// Einfache „Heute“-Ansicht mit Datum-Navigation + PlanListScreen(date)
+/// ---------------------------
+/// Heute-Ansicht – PlanListScreen(date)
+/// mit Tagesnavigation (Gestern/Heute/Morgen)
+/// ---------------------------
 class _TodayPlanTab extends StatefulWidget {
   const _TodayPlanTab({super.key});
 
@@ -53,11 +66,14 @@ class _TodayPlanTabState extends State<_TodayPlanTab> {
 
   DateTime get _ymd => DateTime(_date.year, _date.month, _date.day);
 
-  void _shift(int days) => setState(() => _date = _ymd.add(Duration(days: days)));
+  void _shift(int days) => setState(() {
+        _date = _ymd.add(Duration(days: days));
+      });
 
   @override
   Widget build(BuildContext context) {
     final label = DateFormat('EEEE, d. MMMM', 'de_DE').format(_ymd);
+    final formatted = label[0].toUpperCase() + label.substring(1);
 
     return Column(
       children: [
@@ -72,7 +88,13 @@ class _TodayPlanTabState extends State<_TodayPlanTab> {
               ),
               Expanded(
                 child: Center(
-                  child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  child: Text(
+                    formatted,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
+                  ),
                 ),
               ),
               IconButton(
@@ -84,7 +106,9 @@ class _TodayPlanTabState extends State<_TodayPlanTab> {
           ),
         ),
         const Divider(height: 1),
-        Expanded(child: PlanListScreen(date: _ymd)),
+        Expanded(
+          child: PlanListScreen(date: _ymd),
+        ),
       ],
     );
   }
