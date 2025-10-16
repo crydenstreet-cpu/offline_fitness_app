@@ -1,22 +1,19 @@
-// lib/screens/calendar_month.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../ui/design.dart' as ui;
 import '../db/database_helper.dart';
-import 'plan_list.dart';
+import '../ui/design.dart' as ui;
 
-/// Monatskalender mit Workout-Badges pro Tag (Pills).
-/// Nutzt AppScaffold => Gradient + Dark/Light greifen überall.
+/// Monatskalender mit Workout-Badges pro Tag – im gleichen Design wie der Rest.
+/// Kein eigenes Scaffold/AppBar hier, weil PlanHub die AppBar/Gradient liefert.
 class CalendarMonthScreen extends StatefulWidget {
   const CalendarMonthScreen({super.key});
-
   @override
   State<CalendarMonthScreen> createState() => _CalendarMonthScreenState();
 }
 
 class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
   late DateTime _month; // 1. des aktuellen Monats
-  Map<String, Map<String, dynamic>> _byDate = {}; // yyyy-MM-dd -> row
+  Map<String, Map<String, dynamic>> _byDate = {}; // yyy-MM-dd -> {date, workout_id, workout_name}
   bool _loading = true;
 
   @override
@@ -33,18 +30,17 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
 
-    final firstDayOfMonth = DateTime(_month.year, _month.month, 1);
-    final lastDayOfMonth = DateTime(_month.year, _month.month + 1, 0);
+    final firstDay = DateTime(_month.year, _month.month, 1);
+    final lastDay = DateTime(_month.year, _month.month + 1, 0);
 
-    // auf Wochenraster ausdehnen: Montag = 1 … Sonntag = 7
-    final start = firstDayOfMonth.subtract(Duration(days: firstDayOfMonth.weekday - 1));
-    final end = lastDayOfMonth.add(Duration(days: 7 - lastDayOfMonth.weekday));
+    // Montag..Sonntag einblenden
+    final start = firstDay.subtract(Duration(days: firstDay.weekday - 1));
+    final end = lastDay.add(Duration(days: 7 - lastDay.weekday));
 
     final rows = await DB.instance.getScheduleBetween(start, end);
     final map = <String, Map<String, dynamic>>{};
     for (final r in rows) {
-      final d = r['date'] as String;
-      map[d] = r;
+      map[r['date'] as String] = r;
     }
     setState(() {
       _byDate = map;
@@ -64,55 +60,66 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final monthLabel = DateFormat('MMMM yyyy', 'de_DE').format(_month);
-    final title = 'Kalender – ${monthLabel[0].toUpperCase()}${monthLabel.substring(1)}';
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-    return ui.AppScaffold(
-      appBar: AppBar(
-        title: Text(title),
-        actions: [
-          IconButton(onPressed: _prevMonth, icon: const Icon(Icons.chevron_left)),
-          IconButton(onPressed: _nextMonth, icon: const Icon(Icons.chevron_right)),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                _weekdayHeader(context),
-                const Divider(height: 1),
-                Expanded(child: _monthGrid(context)),
-              ],
-            ),
+    final monthLabel = DateFormat('MMMM yyyy', 'de_DE').format(_month);
+    return Column(
+      children: [
+        // Kopfzeile (Monat + Pfeile) im gleichen Stil
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: _prevMonth,
+                icon: const Icon(Icons.chevron_left),
+                tooltip: 'Vorheriger Monat',
+              ),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    monthLabel,
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: _nextMonth,
+                icon: const Icon(Icons.chevron_right),
+                tooltip: 'Nächster Monat',
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        _weekdayHeader(context),
+        Expanded(child: _monthGrid(context)),
+      ],
     );
   }
 
   Widget _weekdayHeader(BuildContext context) {
-    // Mo–So
-    final names = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
-    final scheme = Theme.of(context).colorScheme;
+    const names = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
     final style = Theme.of(context).textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w700,
-          color: scheme.secondary,
+          fontWeight: FontWeight.w800,
+          color: Theme.of(context).colorScheme.secondary,
         );
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
       child: Row(
-        children: List.generate(7, (i) {
-          return Expanded(
-            child: Center(child: Text(names[i], style: style)),
-          );
-        }),
+        children: List.generate(7, (i) => Expanded(child: Center(child: Text(names[i], style: style)))),
       ),
     );
   }
 
   Widget _monthGrid(BuildContext context) {
-    final firstDayOfMonth = DateTime(_month.year, _month.month, 1);
-    final lastDayOfMonth = DateTime(_month.year, _month.month + 1, 0);
+    final firstDay = DateTime(_month.year, _month.month, 1);
+    final lastDay = DateTime(_month.year, _month.month + 1, 0);
 
-    final start = firstDayOfMonth.subtract(Duration(days: firstDayOfMonth.weekday - 1));
-    final end = lastDayOfMonth.add(Duration(days: 7 - lastDayOfMonth.weekday));
+    final start = firstDay.subtract(Duration(days: firstDay.weekday - 1));
+    final end = lastDay.add(Duration(days: 7 - lastDay.weekday));
 
     final days = <DateTime>[];
     for (DateTime d = start; !d.isAfter(end); d = d.add(const Duration(days: 1))) {
@@ -120,7 +127,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     }
 
     return GridView.builder(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 7,
         crossAxisSpacing: 8,
@@ -135,55 +142,52 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     final ymd = _ymd(day);
     final scheduled = _byDate[ymd]; // {date, workout_id, workout_name}
     final isToday = _ymd(DateTime.now()) == ymd;
-
     final scheme = Theme.of(context).colorScheme;
 
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
       child: InkWell(
+        borderRadius: BorderRadius.circular(12),
         onTap: () {
-          // Spring zur Plan-Liste für diesen Tag
           Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => _PlanForDayScreen(date: day)),
           );
         },
-        borderRadius: BorderRadius.circular(12),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            color: inMonth ? scheme.surface : scheme.surface.withOpacity(0.65),
+            color: inMonth ? scheme.surface : scheme.surfaceVariant.withOpacity(0.35),
             border: Border.all(
               color: isToday ? scheme.primary : Colors.transparent,
               width: isToday ? 2 : 1,
             ),
             boxShadow: [
-              // leichter 3D-Look wie im Rest
+              // leichter „lift“ wie in deinen Cards
               BoxShadow(
-                color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.light ? 0.10 : 0.35),
+                color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.light ? 0.08 : 0.28),
                 blurRadius: 12,
                 offset: const Offset(0, 6),
               ),
             ],
           ),
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Datum oben links als kleine Kapsel
+              // Datum oben links
               Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: isToday ? scheme.primary.withOpacity(0.15) : Colors.transparent,
+                      color: isToday ? scheme.primary.withOpacity(0.14) : Colors.transparent,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       '${day.day}',
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
-                        color: inMonth ? scheme.onSurface : scheme.onSurface.withOpacity(0.45),
+                        color: inMonth ? scheme.onSurface : scheme.onSurface.withOpacity(0.5),
                       ),
                     ),
                   ),
@@ -191,7 +195,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
               ),
               const Spacer(),
               if (scheduled != null)
-                _workoutPill(context, scheduled['workout_name'] as String),
+                _workoutPill(context, scheduled['workout_name']?.toString() ?? 'Workout'),
             ],
           ),
         ),
@@ -206,8 +210,8 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: scheme.primary.withOpacity(0.12),
-          border: Border.all(color: scheme.primary.withOpacity(0.85)),
+          color: scheme.primary.withOpacity(0.14),
+          border: Border.all(color: scheme.primary),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Text(
@@ -218,7 +222,6 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
             fontSize: 11,
             fontWeight: FontWeight.w800,
             color: scheme.primary,
-            letterSpacing: 0.1,
           ),
         ),
       ),
@@ -226,7 +229,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
   }
 }
 
-/// Tages-Screen (Plan-Liste für das Datum) – bleibt im bekannten Flow.
+/// Kleiner Tages-Screen (beibehaltener Flow)
 class _PlanForDayScreen extends StatelessWidget {
   final DateTime date;
   const _PlanForDayScreen({required this.date, super.key});
@@ -236,15 +239,24 @@ class _PlanForDayScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = DateFormat('EEEE, d. MMMM', 'de_DE').format(date);
-    final title = '${label[0].toUpperCase()}${label.substring(1)}';
-
-    return ui.AppScaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Column(
-        children: [
-          Expanded(child: PlanListScreen(date: DateTime(date.year, date.month, date.day))),
-        ],
+    final ymd = _ymd(date);
+    return Scaffold(
+      appBar: AppBar(title: Text(DateFormat('EEEE, d. MMMM', 'de_DE').format(date))),
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: DB.instance.getScheduleBetween(date, date),
+        builder: (context, snap) {
+          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+          final items = snap.data!;
+          if (items.isEmpty) {
+            return const Center(child: Text('Kein Training geplant.'));
+          }
+          final row = items.first;
+          return ListTile(
+            leading: const Icon(Icons.fitness_center),
+            title: Text(row['workout_name']?.toString() ?? 'Workout'),
+            subtitle: Text('Geplant für $ymd'),
+          );
+        },
       ),
     );
   }
