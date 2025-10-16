@@ -4,9 +4,6 @@ import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
 import '../ui/design.dart' as ui;
 
-/// Zeigt und bearbeitet die Planung für EIN Datum.
-/// - „Planen/Ändern“: Workout wählen -> DB.upsertSchedule
-/// - „Plan löschen“: Planung entfernen
 class PlanListScreen extends StatefulWidget {
   final DateTime date;
   const PlanListScreen({super.key, required this.date});
@@ -32,7 +29,6 @@ class _PlanListScreenState extends State<PlanListScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    // hole Planung für GENAU diesen Tag
     final rows = await DB.instance.getScheduleBetween(widget.date, widget.date);
     setState(() {
       _planned = rows.isNotEmpty ? rows.first : null;
@@ -41,7 +37,6 @@ class _PlanListScreenState extends State<PlanListScreen> {
   }
 
   Future<void> _pickWorkoutAndSave() async {
-    // Workouts laden
     final workouts = await DB.instance.getWorkouts();
     if (!mounted) return;
 
@@ -63,8 +58,7 @@ class _PlanListScreenState extends State<PlanListScreen> {
                 if (workouts.isEmpty)
                   const Padding(
                     padding: EdgeInsets.all(16),
-                    child:
-                        Text('Noch keine Workouts vorhanden. Lege erst ein Workout an.'),
+                    child: Text('Noch keine Workouts vorhanden. Lege erst ein Workout an.'),
                   )
                 else
                   Flexible(
@@ -90,7 +84,7 @@ class _PlanListScreenState extends State<PlanListScreen> {
                         child: OutlinedButton.icon(
                           icon: const Icon(Icons.delete_outline),
                           label: const Text('Plan löschen'),
-                          onPressed: () => Navigator.pop(ctx, -1), // -1 => löschen
+                          onPressed: () => Navigator.pop(ctx, -1),
                         ),
                       ),
                     if (_planned != null) const SizedBox(width: 8),
@@ -116,10 +110,8 @@ class _PlanListScreenState extends State<PlanListScreen> {
     if (chosenId == null) return;
 
     if (chosenId == -1) {
-      // löschen
       await DB.instance.deleteSchedule(_ymd);
     } else {
-      // speichern / ersetzen
       await DB.instance.upsertSchedule(_ymd, chosenId);
     }
     await _load();
@@ -129,13 +121,11 @@ class _PlanListScreenState extends State<PlanListScreen> {
   Widget build(BuildContext context) {
     final df = DateFormat('EEEE, d. MMMM', 'de_DE');
     final headlineRaw = df.format(widget.date);
-    final headline =
-        '${headlineRaw[0].toUpperCase()}${headlineRaw.substring(1)}'; // Deutsch: groß am Satzanfang
+    final headline = '${headlineRaw[0].toUpperCase()}${headlineRaw.substring(1)}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Kopfzeile + Aktion
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
           child: Row(
@@ -146,11 +136,10 @@ class _PlanListScreenState extends State<PlanListScreen> {
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                 ),
               ),
-              ui.AppButton3D(
-                label: _planned == null ? 'Planen' : 'Ändern',
-                icon: Icons.edit_calendar,
+              FilledButton.icon(
+                icon: const Icon(Icons.edit_calendar),
+                label: Text(_planned == null ? 'Planen' : 'Ändern'),
                 onPressed: _pickWorkoutAndSave,
-                filled: true,
               ),
             ],
           ),
@@ -170,8 +159,7 @@ class _PlanListScreenState extends State<PlanListScreen> {
                       contentPadding: EdgeInsets.zero,
                       leading: Icon(Icons.event_busy),
                       title: Text('Kein Training geplant'),
-                      subtitle:
-                          Text('Tippe auf „Planen“, um ein Workout zuzuweisen.'),
+                      subtitle: Text('Tippe auf „Planen“, um ein Workout zuzuweisen.'),
                     ),
                   )
                 else
@@ -179,10 +167,15 @@ class _PlanListScreenState extends State<PlanListScreen> {
                     child: ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.event_available),
-                      title: Text(_planned!['workout_name'] ?? 'Workout'),
-                      subtitle: Text('Geplant für $_ymd'),
+                      title: Text(''),
+                      subtitle: Text(''),
                       trailing: const Icon(Icons.chevron_right),
-                      onTap: _pickWorkoutAndSave, // direkt ändern
+                      onTap: _pickWorkoutAndSave,
+                      titleTextStyle: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                      subtitleTextStyle: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
               ],
