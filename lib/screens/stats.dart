@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
-
 import '../db/database_helper.dart';
-import '../ui/design.dart' as ui; // ⬅️ Präfix für SectionHeader/AppCard/AppColors
+import '../ui/design.dart' as ui;
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -105,7 +104,7 @@ class _ExerciseProgressDetailState extends State<ExerciseProgressDetail> {
   Map<String, dynamic>? _best;
   List<Map<String, dynamic>> _recent = [];
   List<Map<String, dynamic>> _perDayVolume = [];
-  List<Map<String, dynamic>> _perDayRW = []; // avg_reps, max_weight pro Tag
+  List<Map<String, dynamic>> _perDayRW = [];
 
   @override
   void initState() {
@@ -119,7 +118,6 @@ class _ExerciseProgressDetailState extends State<ExerciseProgressDetail> {
     final recent = await DB.instance.recentSetsForExercise(id, limit: 12);
     final perDayVol =
         await DB.instance.volumePerDayForExercise(id, limitDays: 30);
-    // ⬇️ nutzt echte Wiederholungen & Gewichte (nicht die Planwerte!)
     final perDayRW =
         await DB.instance.repsAndWeightPerDayForExercise(id, limitDays: 30);
     setState(() {
@@ -162,34 +160,33 @@ class _ExerciseProgressDetailState extends State<ExerciseProgressDetail> {
             ),
           ),
 
-          const ui.SectionHeader('Volumen (letzte 30 Tage)'),
+          ui.SectionHeader('Volumen (letzte 30 Tage)'),
           if (_perDayVolume.isEmpty)
-            const ui.AppCard(child: Text('Keine Daten.'))
+            ui.AppCard(child: const Text('Keine Daten.'))
           else
             ui.AppCard(
-                child:
-                    SizedBox(height: 220, child: _volumeLineChart())),
+              child: SizedBox(height: 220, child: _volumeLineChart()),
+            ),
 
-          const ui.SectionHeader('Ø Wiederholungen pro Tag (letzte 30 Tage)'),
+          ui.SectionHeader('Ø Wiederholungen pro Tag (letzte 30 Tage)'),
           if (_perDayRW.isEmpty)
-            const ui.AppCard(child: Text('Keine Daten.'))
+            ui.AppCard(child: const Text('Keine Daten.'))
           else
             ui.AppCard(
-                child:
-                    SizedBox(height: 220, child: _avgRepsLineChart())),
+              child: SizedBox(height: 220, child: _avgRepsLineChart()),
+            ),
 
-          const ui.SectionHeader('Max-Gewicht pro Tag (letzte 30 Tage)'),
+          ui.SectionHeader('Max-Gewicht pro Tag (letzte 30 Tage)'),
           if (_perDayRW.isEmpty)
-            const ui.AppCard(child: Text('Keine Daten.'))
+            ui.AppCard(child: const Text('Keine Daten.'))
           else
             ui.AppCard(
-                child: SizedBox(
-                    height: 220,
-                    child: _maxWeightLineChart(unit.toString()))),
+              child: SizedBox(height: 220, child: _maxWeightLineChart(unit)),
+            ),
 
-          const ui.SectionHeader('Letzte Sätze'),
+          ui.SectionHeader('Letzte Sätze'),
           if (_recent.isEmpty)
-            const ui.AppCard(child: Text('Keine Daten.'))
+            ui.AppCard(child: const Text('Keine Daten.'))
           else
             ui.AppCard(
               child: Column(
