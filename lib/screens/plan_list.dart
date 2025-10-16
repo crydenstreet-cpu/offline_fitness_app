@@ -1,7 +1,8 @@
+// lib/screens/plan_list.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
-import '../ui/design.dart';
+import '../ui/design.dart' as ui;
 
 /// Zeigt und bearbeitet die Planung für EIN Datum.
 /// - „Planen/Ändern“: Workout wählen -> DB.upsertSchedule
@@ -19,7 +20,9 @@ class _PlanListScreenState extends State<PlanListScreen> {
   bool _loading = true;
 
   String get _ymd =>
-      '${widget.date.year.toString().padLeft(4,'0')}-${widget.date.month.toString().padLeft(2,'0')}-${widget.date.day.toString().padLeft(2,'0')}';
+      '${widget.date.year.toString().padLeft(4, '0')}-'
+      '${widget.date.month.toString().padLeft(2, '0')}-'
+      '${widget.date.day.toString().padLeft(2, '0')}';
 
   @override
   void initState() {
@@ -54,12 +57,14 @@ class _PlanListScreenState extends State<PlanListScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Workout für den Tag wählen', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                const Text('Workout für den Tag wählen',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 8),
                 if (workouts.isEmpty)
                   const Padding(
                     padding: EdgeInsets.all(16),
-                    child: Text('Noch keine Workouts vorhanden. Lege erst ein Workout an.'),
+                    child:
+                        Text('Noch keine Workouts vorhanden. Lege erst ein Workout an.'),
                   )
                 else
                   Flexible(
@@ -123,7 +128,9 @@ class _PlanListScreenState extends State<PlanListScreen> {
   @override
   Widget build(BuildContext context) {
     final df = DateFormat('EEEE, d. MMMM', 'de_DE');
-    final headline = df.format(widget.date);
+    final headlineRaw = df.format(widget.date);
+    final headline =
+        '${headlineRaw[0].toUpperCase()}${headlineRaw.substring(1)}'; // Deutsch: groß am Satzanfang
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -134,13 +141,16 @@ class _PlanListScreenState extends State<PlanListScreen> {
           child: Row(
             children: [
               Expanded(
-                child: Text(headline,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                child: Text(
+                  headline,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                ),
               ),
-              FilledButton.icon(
+              ui.AppButton3D(
+                label: _planned == null ? 'Planen' : 'Ändern',
+                icon: Icons.edit_calendar,
                 onPressed: _pickWorkoutAndSave,
-                icon: const Icon(Icons.edit_calendar),
-                label: Text(_planned == null ? 'Planen' : 'Ändern'),
+                filled: true,
               ),
             ],
           ),
@@ -155,16 +165,19 @@ class _PlanListScreenState extends State<PlanListScreen> {
               padding: const EdgeInsets.all(12),
               children: [
                 if (_planned == null)
-                  const AppCard(
+                  const ui.AppCard3D(
                     child: ListTile(
+                      contentPadding: EdgeInsets.zero,
                       leading: Icon(Icons.event_busy),
                       title: Text('Kein Training geplant'),
-                      subtitle: Text('Tippe auf „Planen“, um ein Workout zuzuweisen.'),
+                      subtitle:
+                          Text('Tippe auf „Planen“, um ein Workout zuzuweisen.'),
                     ),
                   )
                 else
-                  AppCard(
+                  ui.AppCard3D(
                     child: ListTile(
+                      contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.event_available),
                       title: Text(_planned!['workout_name'] ?? 'Workout'),
                       subtitle: Text('Geplant für $_ymd'),
