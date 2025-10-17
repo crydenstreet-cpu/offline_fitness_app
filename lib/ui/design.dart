@@ -33,6 +33,7 @@ class AppColors {
 ThemeData buildLightTheme() {
   final base = ThemeData(
     useMaterial3: true,
+    // etwas kompakter global
     visualDensity: const VisualDensity(horizontal: 0, vertical: -1),
     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     brightness: Brightness.light,
@@ -53,31 +54,32 @@ ThemeData buildLightTheme() {
     colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.lightBgBottom,
 
+    // SCHLANKERE APPBAR
     appBarTheme: const AppBarTheme(
       centerTitle: false,
       elevation: 0,
       backgroundColor: Colors.transparent,
       foregroundColor: AppColors.textLight,
-      toolbarHeight: 46, // kompakter
+      toolbarHeight: 40, // << schlanker Balken
       titleSpacing: 8,
       titleTextStyle: TextStyle(
-        fontSize: 18,
+        fontSize: 16, // << kleiner
         fontWeight: FontWeight.w800,
         color: AppColors.textLight,
       ),
-      iconTheme: IconThemeData(size: 22),
+      iconTheme: IconThemeData(size: 20), // << kleiner
     ),
 
-    // ❗️Neu: TabBarThemeData statt TabBarTheme
+    // Schlankere Tabs
     tabBarTheme: const TabBarThemeData(
-      labelPadding: EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+      labelPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 10),
       indicatorSize: TabBarIndicatorSize.label,
       labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
       unselectedLabelStyle: TextStyle(fontSize: 13),
       dividerColor: Colors.transparent,
     ),
 
-    // ❗️Neu: CardThemeData statt CardTheme
+    // Karten
     cardTheme: const CardThemeData(
       clipBehavior: Clip.antiAlias,
       margin: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -85,17 +87,19 @@ ThemeData buildLightTheme() {
       surfaceTintColor: Colors.transparent,
     ),
 
+    // Buttons etwas dichter
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         elevation: 0,
         foregroundColor: Colors.white,
         backgroundColor: AppColors.red,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     ),
 
+    // ListTiles kompakter
     listTileTheme: const ListTileThemeData(
       dense: true,
       minVerticalPadding: 6,
@@ -140,18 +144,18 @@ ThemeData buildDarkTheme() {
       elevation: 0,
       backgroundColor: Colors.transparent,
       foregroundColor: AppColors.textDark,
-      toolbarHeight: 46,
+      toolbarHeight: 40, // << schlanker Balken
       titleSpacing: 8,
       titleTextStyle: TextStyle(
-        fontSize: 18,
+        fontSize: 16, // << kleiner
         fontWeight: FontWeight.w800,
         color: AppColors.textDark,
       ),
-      iconTheme: IconThemeData(size: 22),
+      iconTheme: IconThemeData(size: 20), // << kleiner
     ),
 
     tabBarTheme: const TabBarThemeData(
-      labelPadding: EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+      labelPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 10),
       indicatorSize: TabBarIndicatorSize.label,
       labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
       unselectedLabelStyle: TextStyle(fontSize: 13),
@@ -170,7 +174,7 @@ ThemeData buildDarkTheme() {
         elevation: 0,
         foregroundColor: Colors.white,
         backgroundColor: AppColors.red,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
@@ -239,11 +243,20 @@ class AppScaffold extends StatelessWidget {
       drawer: drawer,
       appBar: appBar,
       backgroundColor: Colors.transparent,
-      body: GradientBackground(child: SafeArea(child: body)),
+      body: GradientBackground(
+        // oben SafeArea anlassen, damit nix in die Statusbar rutscht
+        child: const SafeArea(top: true, bottom: true, child: SizedBox.shrink()),
+      ).copyWithBody(body), // kleiner Helper unten
       bottomNavigationBar: bottom,
       floatingActionButton: fab,
     );
   }
+}
+
+// Kleiner Helper, um im AppScaffold das Kind einzusetzen,
+// ohne den Gradient-Block oben aufzublasen.
+extension on GradientBackground {
+  Widget copyWithBody(Widget body) => GradientBackground(child: SafeArea(child: body));
 }
 
 /// Flat Card
@@ -409,7 +422,7 @@ class _AppButton3DState extends State<AppButton3D> {
             onTap: widget.onPressed,
             borderRadius: BorderRadius.circular(14),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
