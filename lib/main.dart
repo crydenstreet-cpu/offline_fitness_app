@@ -1,41 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
+import 'theme/theme_controller.dart';
 import 'ui/design.dart';
-import 'theme/theme_controller.dart';  // ⬅️ NEU
-
 import 'screens/dashboard.dart';
 import 'screens/plan_hub.dart';
 import 'screens/workouts.dart';
 import 'screens/exercises.dart';
 import 'screens/stats.dart';
 import 'screens/journal.dart';
-import 'screens/settings.dart'; // falls vorhanden
+import 'screens/settings.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('de_DE');
-
-  // Theme laden
-  await ThemeController.instance.init();
-
-  runApp(const MyApp());
+  await ThemeController.instance.init(); // Dark/Light persistieren
+  runApp(const RootApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
+class RootApp extends StatelessWidget {
+  const RootApp({super.key});
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: ThemeController.instance.mode,
-      builder: (context, themeMode, _) {
+      builder: (_, mode, __) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           title: 'Offline Fitness App',
           theme: buildLightTheme(),
           darkTheme: buildDarkTheme(),
-          themeMode: themeMode, // ⬅️ steuert Light/Dark
+          themeMode: mode,
           home: const _NavWithDrawer(),
         );
       },
@@ -91,12 +86,12 @@ class _NavWithDrawerState extends State<_NavWithDrawer> {
 class _AppDrawer extends StatelessWidget {
   final int selected;
   final ValueChanged<int> onSelect;
-  const _AppDrawer({required this.selected, required this.onSelect, super.key});
+  const _AppDrawer({required this.selected, required this.onSelect});
 
   @override
   Widget build(BuildContext context) {
     final selColor = Theme.of(context).colorScheme.primary.withOpacity(0.12);
-    Widget item({required IconData icon, required String label, required int idx}) {
+    Widget item(IconData icon, String label, int idx) {
       final isSel = selected == idx;
       return Material(
         color: isSel ? selColor : Colors.transparent,
@@ -119,20 +114,19 @@ class _AppDrawer extends StatelessWidget {
               trailing: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
             ),
             const Divider(),
-            item(icon: Icons.home,           label: 'Home',     idx: 0),
-            item(icon: Icons.event_note,     label: 'Plan',     idx: 1),
-            item(icon: Icons.fitness_center, label: 'Workouts', idx: 2),
-            item(icon: Icons.list_alt,       label: 'Übungen',  idx: 3),
-            item(icon: Icons.bar_chart,      label: 'Stats',    idx: 4),
-            item(icon: Icons.book,           label: 'Tagebuch', idx: 5),
+            item(Icons.home,            'Home',     0),
+            item(Icons.event_note,      'Plan',     1),
+            item(Icons.fitness_center,  'Workouts', 2),
+            item(Icons.list_alt,        'Übungen',  3),
+            item(Icons.bar_chart,       'Stats',    4),
+            item(Icons.book,            'Tagebuch', 5),
             const Divider(),
-            // Optional: Einstellungen verlinken (falls eigene Settings-Seite vorhanden)
             ListTile(
               leading: const Icon(Icons.settings),
-              title: const Text('Einstellungen'),
+              title: const Text('Einstellungen', style: TextStyle(fontWeight: FontWeight.w600)),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
               },
             ),
           ],
