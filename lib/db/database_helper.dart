@@ -20,7 +20,7 @@ class DB {
 
     return openDatabase(
       path,
-      version: 6, // ⬅️ v6: exercises.position + Fixes
+      version: 7, // ⬅️ v7: workouts.color + PR-Helpers
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -34,7 +34,7 @@ class DB {
             unit TEXT DEFAULT 'kg',
             default_sets INTEGER DEFAULT 3,
             default_reps INTEGER DEFAULT 10,
-            position INTEGER,                 -- ⬅️ v6
+            position INTEGER,
             created_at TEXT
           );
         ''');
@@ -43,6 +43,7 @@ class DB {
           CREATE TABLE workouts(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
+            color INTEGER,                -- ⬅️ v7: Farbcodes
             created_at TEXT
           );
         ''');
@@ -155,6 +156,12 @@ class DB {
             await db.execute('ALTER TABLE exercises ADD COLUMN position INTEGER;');
           }
         }
+        if (oldVersion < 7) {
+          final cols = await db.rawQuery('PRAGMA table_info(workouts);');
+          if (!cols.any((c) => (c['name'] as String?) == 'color')) {
+            await db.execute('ALTER TABLE workouts ADD COLUMN color INTEGER;');
+          }
+        }
       },
     );
   }
@@ -168,7 +175,6 @@ class DB {
 
   Future<List<Map<String, dynamic>>> getExercises() async {
     final db = await database;
-    // Sortierung: zuerst manuell (position), dann fallback auf id DESC
     return db.query('exercises', orderBy: 'COALESCE(position, 999999), id DESC');
   }
 
@@ -182,7 +188,6 @@ class DB {
     return db.delete('exercises', where: 'id = ?', whereArgs: [id]);
   }
 
-  /// ⬅️ Wird aus exercises.dart beim Drag&Drop-Reorder aufgerufen
   Future<void> updateExercisesOrder(List<int> idsInOrder) async {
     final db = await database;
     final batch = db.batch();
@@ -193,30 +198,32 @@ class DB {
   }
 
   // -------- WORKOUTS --------
-  Future<int> insertWorkout(String name) async {
+  Future<int> insertWorkout(String name, {int? color}) async {
     final db = await database;
     return db.insert('workouts', {
       'name': name,
+      'color': color,
       'created_at': DateTime.now().toIso8601String()
     });
+  }
+
+  Future<int> updateWorkout(int id, {String? name, int? color}) async {
+    final db = await database;
+    final data = <String, Object?>{};
+    if (name != null) data['name'] = name;
+    if (color != null) data['color'] = color;
+    if (data.isEmpty) return 0;
+    return db.update('workouts', data, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> deleteWorkout(int id) async {
+    final db = await database;
+    return db.delete('workouts', where: 'id = ?', whereArgs: [id]);
   }
 
   Future<List<Map<String, dynamic>>> getWorkouts() async {
     final db = await database;
     return db.query('workouts', orderBy: 'created_at DESC');
-  }
-
-  /// ⬅️ NEU: Workout-Namen bearbeiten
-  Future<int> updateWorkoutName(int id, String name) async {
-    final db = await database;
-    return db.update('workouts', {'name': name}, where: 'id = ?', whereArgs: [id]);
-  }
-
-  /// ⬅️ NEU: Workout löschen (verknüpfte Einträge in workout_exercises & workout_schedule
-  /// werden dank ON DELETE CASCADE automatisch gelöscht. Sessions werden auf NULL gesetzt.)
-  Future<int> deleteWorkoutById(int id) async {
-    final db = await database;
-    return db.delete('workouts', where: 'id = ?', whereArgs: [id]);
   }
 
   Future<int> addExerciseToWorkout(int workoutId, int exerciseId, {int? position}) async {
@@ -348,6 +355,17 @@ class DB {
     return (w is num) ? w.toDouble() : double.tryParse('$w');
   }
 
+  /// PR-Check: ist (weight,reps) besser als bisheriger Bestwert?
+  Future<bool> willBePR(int exerciseId, double weight, int reps) async {
+    final best = await bestSetForExercise(exerciseId);
+    if (best == null) return true; // erster Eintrag = PR
+    final bestW = (best['weight'] as num).toDouble();
+    final bestR = (best['reps'] as num).toInt();
+    if (weight > bestW) return true;
+    if (weight == bestW && reps > bestR) return true;
+    return false;
+  }
+
   // -------- JOURNAL --------
   Future<int> insertJournal(
     DateTime date,
@@ -474,7 +492,6 @@ class DB {
     ''', [exerciseId, limitDays]);
   }
 
-  /// Ø-Reps + Max-Weight pro Tag (für Stats)
   Future<List<Map<String, dynamic>>> repsAndWeightPerDayForExercise(
     int exerciseId, {int limitDays = 30}
   ) async {
@@ -532,7 +549,7 @@ class DB {
     final fromY = _ymd(from);
     final toY = _ymd(to);
     return db.rawQuery('''
-      SELECT s.date, s.workout_id, w.name AS workout_name
+      SELECT s.date, s.workout_id, w.name AS workout_name, w.color AS color
       FROM workout_schedule s
       JOIN workouts w ON w.id = s.workout_id
       WHERE s.date >= ? AND s.date <= ?
