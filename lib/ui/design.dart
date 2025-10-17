@@ -41,6 +41,7 @@ class _AppThemeX extends ThemeExtension<_AppThemeX> {
 
   @override
   _AppThemeX copyWith({bool? light}) => _AppThemeX(light: light ?? this.light);
+
   @override
   _AppThemeX lerp(ThemeExtension<_AppThemeX>? other, double t) => this;
 }
@@ -186,6 +187,7 @@ class GradientBackground extends StatelessWidget {
 
 /// ------------------------------------
 /// AppScaffold – mit optionalem Drawer
+///  -> Scaffold ist TRANSPARENT, Gradient liegt HINTER dem ganzen Screen.
 /// ------------------------------------
 class AppScaffold extends StatelessWidget {
   final PreferredSizeWidget? appBar;
@@ -205,12 +207,15 @@ class AppScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      drawer: drawer,
-      appBar: appBar,
-      body: GradientBackground(child: SafeArea(child: body)),
-      bottomNavigationBar: bottom,
-      floatingActionButton: fab,
+    return GradientBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent, // <<< wichtig gegen „milchige“ Fläche
+        drawer: drawer,
+        appBar: appBar,
+        body: SafeArea(child: body),
+        bottomNavigationBar: bottom,
+        floatingActionButton: fab,
+      ),
     );
   }
 }
