@@ -29,25 +29,30 @@ class AppColors {
   static const Color textLightMuted = Color(0xFF5E6676);
 
   // ===== Backwards-Compat Aliase (für bestehenden Code) =====
-  static const Color primary = red;            // wurde in alten Screens genutzt
-  static const Color surface2 = lightSurface2; // z. B. für CircleAvatar
-  static const Color text = textLight;         // Standard-Textfarbe (Light)
+  static const Color primary = red;
+  static const Color surface2 = lightSurface2;
+  static const Color text = textLight;
 }
 
-/// Marker-Extension um hell/dunkel für den Gradient zu erkennen
+/// Kleine Extension (optional). Kann fehlen, wenn ein lokales Theme ohne
+/// Extensions erstellt wird – deshalb **immer** auf brightness zurückfallen!
 class _AppThemeX extends ThemeExtension<_AppThemeX> {
   final bool light;
   const _AppThemeX({required this.light});
 
   @override
   _AppThemeX copyWith({bool? light}) => _AppThemeX(light: light ?? this.light);
-
   @override
   _AppThemeX lerp(ThemeExtension<_AppThemeX>? other, double t) => this;
 }
 
-bool _isLight(BuildContext context) =>
-    Theme.of(context).extension<_AppThemeX>()?.light ?? true;
+/// WICHTIG: Wenn die Extension fehlt, nutze die tatsächliche Helligkeit
+/// des aktiven Themes als Fallback.
+bool _isLight(BuildContext context) {
+  final theme = Theme.of(context);
+  final ext = theme.extension<_AppThemeX>();
+  return ext?.light ?? (theme.brightness == Brightness.light);
+}
 
 /// ----------------------------------------------------
 /// THEME (Material 3, kräftiger Rot-Akzent)
@@ -156,7 +161,6 @@ ThemeData buildDarkTheme() {
   );
 }
 
-/// Falls irgendwo noch buildAppTheme() genutzt wird
 ThemeData buildAppTheme() => buildLightTheme();
 
 /// ------------------------------------
@@ -168,7 +172,7 @@ class GradientBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isLight = _isLight(context);
+    final isLight = _isLight(context); // <- jetzt zuverlässig
     final top = isLight ? AppColors.lightBgTop : AppColors.darkBgTop;
     final bottom = isLight ? AppColors.lightBgBottom : AppColors.darkBgBottom;
 
@@ -187,7 +191,6 @@ class GradientBackground extends StatelessWidget {
 
 /// ------------------------------------
 /// AppScaffold – mit optionalem Drawer
-///  -> Scaffold ist TRANSPARENT, Gradient liegt HINTER dem ganzen Screen.
 /// ------------------------------------
 class AppScaffold extends StatelessWidget {
   final PreferredSizeWidget? appBar;
@@ -207,15 +210,12 @@ class AppScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GradientBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent, // <<< wichtig gegen „milchige“ Fläche
-        drawer: drawer,
-        appBar: appBar,
-        body: SafeArea(child: body),
-        bottomNavigationBar: bottom,
-        floatingActionButton: fab,
-      ),
+    return Scaffold(
+      drawer: drawer,
+      appBar: appBar,
+      body: GradientBackground(child: SafeArea(child: body)),
+      bottomNavigationBar: bottom,
+      floatingActionButton: fab,
     );
   }
 }
