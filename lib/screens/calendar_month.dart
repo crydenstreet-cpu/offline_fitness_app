@@ -10,7 +10,7 @@ class CalendarMonthScreen extends StatefulWidget {
 }
 
 class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
-  late DateTime _month; // 1. des Monats
+  late DateTime _month;
   // yyyy-MM-dd -> {date, workout_id, workout_name, color}
   Map<String, Map<String, dynamic>> _byDate = {};
   bool _loading = true;
@@ -37,10 +37,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     for (final r in rows) {
       map[r['date'] as String] = r;
     }
-    setState(() {
-      _byDate = map;
-      _loading = false;
-    });
+    setState(() { _byDate = map; _loading = false; });
   }
 
   void _prev() { setState(() => _month = DateTime(_month.year, _month.month - 1, 1)); _load(); }
@@ -49,12 +46,13 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
+
     final scheme = Theme.of(context).colorScheme;
     final monthLabel = DateFormat('MMMM yyyy', 'de_DE').format(_month);
 
-    // WICHTIG: transparenter Hintergrund, damit AppScaffold/Theme durchscheint
-    return Container(
-      color: Colors.transparent,
+    // >>> WICHTIG: explizit den Seitenhintergrund an das Theme koppeln
+    return ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: Column(
         children: [
           Padding(
@@ -74,7 +72,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
               ],
             ),
           ),
-          Divider(height: 1, color: scheme.outlineVariant.withOpacity(0.3)),
+          Divider(height: 1, color: scheme.outlineVariant.withOpacity(0.25)),
           _weekdayHeader(context),
           Expanded(child: _grid(context)),
         ],
@@ -91,8 +89,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
       child: Row(
-        children: List.generate(
-          7,
+        children: List.generate(7,
           (i) => Expanded(child: Center(child: Text(names[i], style: style))),
         ),
       ),
@@ -124,7 +121,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
 
   Widget _cell(BuildContext context, DateTime day, bool inMonth) {
     final ymd = _ymd(day);
-    final scheduled = _byDate[ymd]; // {date, workout_id, workout_name, color}
+    final scheduled = _byDate[ymd];
     final isToday = _ymd(DateTime.now()) == ymd;
     final scheme = Theme.of(context).colorScheme;
 
@@ -144,23 +141,14 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            // sehr leichte Tönung statt „echte“ Kartenfarbe → bleibt im Dark Mode dunkel
-            color: inMonth
-                ? scheme.surface.withOpacity(0.06)
-                : scheme.surface.withOpacity(0.02),
+            // >>> KEIN Flächen-Farbauftrag – komplett transparent lassen
+            color: Colors.transparent,
             border: Border.all(
-              color: isToday ? scheme.primary : Colors.transparent,
+              color: isToday
+                  ? scheme.primary
+                  : (inMonth ? scheme.outlineVariant.withOpacity(0.25) : Colors.transparent),
               width: isToday ? 2 : 1,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(
-                  Theme.of(context).brightness == Brightness.light ? 0.06 : 0.24,
-                ),
-                blurRadius: 10,
-                offset: const Offset(0, 6),
-              ),
-            ],
           ),
           padding: const EdgeInsets.all(6),
           child: Column(
@@ -244,10 +232,8 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
               builder: (ctx, setBottom) => Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'Workout für $ymd wählen',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                  ),
+                  Text('Workout für $ymd wählen',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 8),
                   if (workouts.isEmpty)
                     const Padding(
@@ -312,10 +298,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     );
 
     if (chosenId == null) return false;
-    if (chosenId == -1) {
-      await DB.instance.deleteSchedule(ymd);
-      return true;
-    }
+    if (chosenId == -1) { await DB.instance.deleteSchedule(ymd); return true; }
     await DB.instance.upsertSchedule(ymd, chosenId);
     return true;
   }
@@ -333,16 +316,14 @@ class _PlanForDayScreen extends StatelessWidget {
     final ymd = _ymd(date);
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.transparent, // passt sich an
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(title: Text(DateFormat('EEEE, d. MMMM', 'de_DE').format(date))),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: DB.instance.getScheduleBetween(date, date),
         builder: (context, snap) {
           if (!snap.hasData) return const Center(child: CircularProgressIndicator());
           final items = snap.data!;
-          if (items.isEmpty) {
-            return const Center(child: Text('Kein Training geplant.'));
-          }
+          if (items.isEmpty) return const Center(child: Text('Kein Training geplant.'));
           final row = items.first;
           return ListTile(
             leading: const Icon(Icons.fitness_center),
