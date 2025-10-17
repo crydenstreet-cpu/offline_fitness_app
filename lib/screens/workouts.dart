@@ -73,8 +73,9 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                       child: CircleAvatar(
                         radius: selected ? 18 : 16,
                         backgroundColor: c,
-                        child:
-                            selected ? const Icon(Icons.check, color: Colors.white) : null,
+                        child: selected
+                            ? const Icon(Icons.check, color: Colors.white)
+                            : null,
                       ),
                     );
                   }).toList(),
@@ -278,8 +279,9 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                     child: CircleAvatar(
                       radius: selected ? 18 : 16,
                       backgroundColor: c,
-                      child:
-                          selected ? const Icon(Icons.check, color: Colors.white) : null,
+                      child: selected
+                          ? const Icon(Icons.check, color: Colors.white)
+                          : null,
                     ),
                   );
                 }).toList(),
@@ -431,24 +433,14 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-                controller: nameCtrl,
-                autofocus: true,
-                decoration: const InputDecoration(labelText: 'Name')),
+            TextField(controller: nameCtrl, autofocus: true, decoration: const InputDecoration(labelText: 'Name')),
             const SizedBox(height: 8),
-            TextField(
-                controller: unitCtrl,
-                decoration:
-                    const InputDecoration(labelText: 'Einheit (z. B. kg, reps, s)')),
+            TextField(controller: unitCtrl, decoration: const InputDecoration(labelText: 'Einheit (z. B. kg, reps, s)')),
           ],
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Abbrechen')),
-          ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Speichern')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Speichern')),
         ],
       ),
     );
@@ -524,8 +516,9 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                       child: FilledButton.icon(
                         icon: const Icon(Icons.add),
                         label: const Text('Hinzufügen'),
-                        onPressed:
-                            selectedId == null ? null : () => Navigator.pop(ctx, true),
+                        onPressed: selectedId == null
+                            ? null
+                            : () => Navigator.pop(ctx, true),
                       ),
                     ),
                   ],
@@ -540,7 +533,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
     if (confirmed == true && selectedId != null) {
       await DB.instance.addExerciseToWorkout(
         widget.workout['id'] as int,
-        selectedId,
+        selectedId!, // <-- WICHTIG: non-null
       );
       _reload();
       if (mounted) {
@@ -553,11 +546,9 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
 
   Future<void> _editPlanDialog(Map<String, dynamic> row) async {
     final linkId = row['link_id'] as int;
-    final unit = (row['unit'] ?? 'kg').toString();
-    final setsCtrl =
-        TextEditingController(text: (row['planned_sets'] ?? row['default_sets'] ?? 3).toString());
-    final repsCtrl =
-        TextEditingController(text: (row['planned_reps'] ?? row['default_reps'] ?? 10).toString());
+    final unit   = (row['unit'] ?? 'kg').toString();
+    final setsCtrl   = TextEditingController(text: (row['planned_sets'] ?? row['default_sets'] ?? 3).toString());
+    final repsCtrl   = TextEditingController(text: (row['planned_reps'] ?? row['default_reps'] ?? 10).toString());
     final weightCtrl = TextEditingController(text: (row['planned_weight'] ?? '').toString());
 
     final saved = await showDialog<bool>(
@@ -566,23 +557,12 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
         title: Text('Plan bearbeiten – ${row['name']}'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           Row(children: [
-            Expanded(
-                child: TextField(
-                    controller: setsCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Sätze'))),
+            Expanded(child: TextField(controller: setsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Sätze'))),
             const SizedBox(width: 10),
-            Expanded(
-                child: TextField(
-                    controller: repsCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Wdh.'))),
+            Expanded(child: TextField(controller: repsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Wdh.'))),
           ]),
           const SizedBox(height: 8),
-          TextField(
-              controller: weightCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(labelText: 'Gewicht ($unit)')),
+          TextField(controller: weightCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: 'Gewicht ($unit)')),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
@@ -592,41 +572,32 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
     );
 
     if (saved == true) {
-      final sets = int.tryParse(setsCtrl.text.trim());
-      final reps = int.tryParse(repsCtrl.text.trim());
+      final sets   = int.tryParse(setsCtrl.text.trim());
+      final reps   = int.tryParse(repsCtrl.text.trim());
       final weight = double.tryParse(weightCtrl.text.trim().replaceAll(',', '.'));
       await DB.instance.updateWorkoutExercisePlan(
-        linkId: linkId,
-        plannedSets: sets,
-        plannedReps: reps,
-        plannedWeight: weight,
+        linkId: linkId, plannedSets: sets, plannedReps: reps, plannedWeight: weight,
       );
       _reload();
     }
   }
 
   Future<void> _startTraining() async {
-    final exercises =
-        await DB.instance.getExercisesOfWorkout(widget.workout['id'] as int);
+    final exercises = await DB.instance.getExercisesOfWorkout(widget.workout['id'] as int);
     if (exercises.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Füge zuerst Übungen hinzu.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Füge zuerst Übungen hinzu.')));
       return;
     }
-    final sessionId =
-        await DB.instance.startSession(workoutId: widget.workout['id'] as int);
+    final sessionId = await DB.instance.startSession(workoutId: widget.workout['id'] as int);
     if (!mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SessionScreen(
-          sessionId: sessionId,
-          workoutId: widget.workout['id'] as int,
-          workoutName: widget.workout['name'] as String,
-        ),
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => SessionScreen(
+        sessionId: sessionId,
+        workoutId: widget.workout['id'] as int,
+        workoutName: widget.workout['name'] as String,
       ),
-    );
+    ));
   }
 
   @override
@@ -637,11 +608,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
       appBar: AppBar(
         title: Row(
           children: [
-            CircleAvatar(
-                radius: 10,
-                backgroundColor: color != null
-                    ? Color(color)
-                    : Theme.of(context).colorScheme.primary),
+            CircleAvatar(radius: 10, backgroundColor: color != null ? Color(color) : Theme.of(context).colorScheme.primary),
             const SizedBox(width: 8),
             Text('Workout: ${w['name']}'),
           ],
@@ -650,9 +617,8 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
           IconButton(onPressed: _addExerciseToWorkout, icon: const Icon(Icons.add)),
           IconButton(
             onPressed: () async {
-              await context
-                  .findAncestorStateOfType<_WorkoutsScreenState>()
-                  ?._editWorkoutDialog(w);
+              // Edit vom Detail aus – nutze Dialog aus der Liste
+              await context.findAncestorStateOfType<_WorkoutsScreenState>()?._editWorkoutDialog(w);
               setState(() {});
             },
             icon: const Icon(Icons.edit),
@@ -680,8 +646,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
 
               return Card(
                 child: ListTile(
-                  title: Text(e['name'] ?? '',
-                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                  title: Text(e['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w800)),
                   subtitle: Text(
                     'Plan: ${planSets ?? '-'}×${planReps ?? '-'}'
                     '${planWeight != null ? ' @ ${_fmt(planWeight)} $unit' : ''}',
