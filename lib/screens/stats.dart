@@ -1,8 +1,8 @@
+// lib/screens/stats.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:fl_chart/fl_chart.dart';
 import '../db/database_helper.dart';
-import '../ui/design.dart' as ui;
+import '../ui/design.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -26,7 +26,7 @@ class _StatsScreenState extends State<StatsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return ui.AppScaffold(
+    return AppScaffold(
       appBar: AppBar(title: const Text('📈 Progress & PRs')),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _exercisesFuture,
@@ -34,38 +34,72 @@ class _StatsScreenState extends State<StatsScreen> {
           if (!snap.hasData) return const Center(child: CircularProgressIndicator());
           final exercises = snap.data!;
           if (exercises.isEmpty) return const Center(child: Text('Noch keine Übungen angelegt.'));
-          return ListView.builder(
+
+          return ListView(
             padding: const EdgeInsets.only(bottom: 16),
-            itemCount: exercises.length,
-            itemBuilder: (context, i) {
-              final e = exercises[i];
-              return FutureBuilder<Map<String, dynamic>?>(
-                future: DB.instance.progressForExercise(e['id'] as int),
-                builder: (context, progSnap) {
-                  final p = progSnap.data;
-                  final maxW = p?['max_weight'];
-                  final vol  = p?['total_volume'];
-                  final sets = p?['total_sets'];
-                  return ui.AppCard(
+            children: [
+              // --- Globaler 7d Vergleich (Volumen) ---
+              FutureBuilder<List<Map<String, dynamic>>>(
+                future: DB.instance.volumeByDayAll(days: 28),
+                builder: (context, s) {
+                  if (!s.hasData) return const SizedBox.shrink();
+                  final data = s.data!;
+                  double last7 = 0, prev7 = 0;
+                  // data ist ASC sortiert (per Helper) => wir summieren die letzten 7 und die 7 davor.
+                  final vols = data.map((r) => (r['volume'] as num?)?.toDouble() ?? 0).toList();
+                  if (vols.isNotEmpty) {
+                    final end = vols.length;
+                    final aStart = (end - 7).clamp(0, end);
+                    final bStart = (end - 14).clamp(0, end);
+                    last7 = vols.sublist(aStart, end).fold(0.0, (p, v) => p + v);
+                    prev7 = vols.sublist(bStart, aStart).fold(0.0, (p, v) => p + v);
+                  }
+                  final diff = last7 - prev7;
+                  final pct = prev7 == 0 ? 100.0 : (diff / prev7 * 100);
+                  final sign = diff >= 0 ? '+' : '–';
+                  return AppCard(
                     child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(e['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w800)),
-                      subtitle: Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text([
-                          if (maxW != null) 'PR: ${_fmtNum(maxW)} ${e['unit'] ?? 'kg'}',
-                          if (vol  != null) 'Volumen: ${_fmtNum(vol)}',
-                          if (sets != null) 'Sätze: $sets',
-                        ].join('  •  ')),
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.push(
-                        context, MaterialPageRoute(builder: (_) => ExerciseProgressDetail(exercise: e))),
+                      title: const Text('Letzte 7 Tage (Volumen)'),
+                      subtitle: Text('Aktuell: ${last7.toStringAsFixed(0)}  •  Vorher: ${prev7.toStringAsFixed(0)}'),
+                      trailing: Text('$sign${pct.abs().toStringAsFixed(1)} %', style: TextStyle(
+                        color: diff>=0 ? Colors.green : Colors.red,
+                        fontWeight: FontWeight.w900,
+                      )),
                     ),
                   );
                 },
-              );
-            },
+              ),
+
+              // --- pro Übung: PR + Detail ---
+              const SectionHeader('Übungen'),
+              ...exercises.map((e) => FutureBuilder<Map<String, dynamic>?>(
+                    future: DB.instance.progressForExercise(e['id'] as int),
+                    builder: (context, progSnap) {
+                      final p = progSnap.data;
+                      final maxW = p?['max_weight'];
+                      final vol  = p?['total_volume'];
+                      final sets = p?['total_sets'];
+                      return AppCard(
+                        onTap: () => Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => _ExerciseDetail(exercise: e),
+                        )),
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(e['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w800)),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text([
+                              if (maxW != null) 'PR: ${_fmtNum(maxW)} ${e['unit'] ?? 'kg'}',
+                              if (vol  != null) 'Volumen: ${_fmtNum(vol)}',
+                              if (sets != null) 'Sätze: $sets',
+                            ].join('  •  ')),
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                        ),
+                      );
+                    },
+                  )),
+            ],
           );
         },
       ),
@@ -79,17 +113,16 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 }
 
-class ExerciseProgressDetail extends StatefulWidget {
+class _ExerciseDetail extends StatefulWidget {
   final Map<String, dynamic> exercise;
-  const ExerciseProgressDetail({super.key, required this.exercise});
+  const _ExerciseDetail({required this.exercise});
+
   @override
-  State<ExerciseProgressDetail> createState() => _ExerciseProgressDetailState();
+  State<_ExerciseDetail> createState() => _ExerciseDetailState();
 }
 
-class _ExerciseProgressDetailState extends State<ExerciseProgressDetail> {
+class _ExerciseDetailState extends State<_ExerciseDetail> {
   Map<String, dynamic>? _best;
-  List<Map<String, dynamic>> _recent = [];
-  List<Map<String, dynamic>> _perDayVolume = [];
   List<Map<String, dynamic>> _perDayRW = [];
 
   @override
@@ -98,188 +131,82 @@ class _ExerciseProgressDetailState extends State<ExerciseProgressDetail> {
   Future<void> _load() async {
     final id = widget.exercise['id'] as int;
     final best = await DB.instance.bestSetForExercise(id);
-    final recent = await DB.instance.recentSetsForExercise(id, limit: 12);
-    final perDayVol = await DB.instance.volumePerDayForExercise(id, limitDays: 30);
-    final perDayRW  = await DB.instance.repsAndWeightPerDayForExercise(id, limitDays: 30);
-    setState(() { _best = best; _recent = recent; _perDayVolume = perDayVol; _perDayRW = perDayRW; });
+    final perDayRW = await DB.instance.repsAndWeightPerDayForExercise(id, limitDays: 28);
+    setState(() { _best = best; _perDayRW = perDayRW; });
   }
 
   @override
   Widget build(BuildContext context) {
-    final e = widget.exercise;
-    final unit = e['unit'] ?? 'kg';
-    final dateFmt = DateFormat('dd.MM.yyyy');
+    final unit = widget.exercise['unit'] ?? 'kg';
+    final df = DateFormat('dd.MM.yyyy');
 
-    return ui.AppScaffold(
-      appBar: AppBar(title: Text('Progress: ${e['name']}')),
+    // Vergleich Ø-Reps & Max-Gewicht 7d vs. 7d davor
+    double lastAvg = 0, prevAvg = 0, lastMax = 0, prevMax = 0;
+    if (_perDayRW.isNotEmpty) {
+      final daysAsc = List<Map<String, dynamic>>.from(_perDayRW.reversed); // ASC
+      final end = daysAsc.length;
+      final aStart = (end - 7).clamp(0, end);
+      final bStart = (end - 14).clamp(0, end);
+      final a = daysAsc.sublist(aStart, end);
+      final b = daysAsc.sublist(bStart, aStart);
+      if (a.isNotEmpty) {
+        lastAvg = a.map((m) => (m['avg_reps'] as num?)?.toDouble() ?? 0).fold(0.0, (p, v) => p + v) / a.length;
+        lastMax = a.map((m) => (m['max_weight'] as num?)?.toDouble() ?? 0).fold(0.0, (p, v) => p > v ? p : v);
+      }
+      if (b.isNotEmpty) {
+        prevAvg = b.map((m) => (m['avg_reps'] as num?)?.toDouble() ?? 0).fold(0.0, (p, v) => p + v) / b.length;
+        prevMax = b.map((m) => (m['max_weight'] as num?)?.toDouble() ?? 0).fold(0.0, (p, v) => p > v ? p : v);
+      }
+    }
+    double _pct(double a, double b) => b == 0 ? 100.0 : ((a - b) / b * 100);
+
+    return AppScaffold(
+      appBar: AppBar(title: Text('Progress: ${widget.exercise['name']}')),
       body: ListView(
         children: [
-          ui.AppCard(
+          AppCard(
             child: Row(
               children: [
-                const Icon(Icons.emoji_events, color: ui.AppColors.primary),
+                const Icon(Icons.emoji_events, color: AppColors.primary),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Text('Personal Record', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                     Text(_best == null
                         ? '–'
-                        : '${_num(_best!['weight'])} $unit  ×  ${_best!['reps']}  (${_best!['started_at'] != null ? dateFmt.format(DateTime.parse(_best!['started_at'])) : '-'})'),
+                        : '${(_best!['weight'] as num).toStringAsFixed(0)} $unit  ×  ${_best!['reps']}  (${_best!['started_at'] != null ? df.format(DateTime.parse(_best!['started_at'])) : '-'})'),
                   ]),
                 ),
               ],
             ),
           ),
-
-          _SectionHeader('Volumen (letzte 30 Tage)'),
-          if (_perDayVolume.isEmpty)
-            ui.AppCard(child: const Text('Keine Daten.'))
-          else
-            ui.AppCard(child: SizedBox(height: 220, child: _volumeLineChart())),
-
-          _SectionHeader('Ø Wiederholungen pro Tag (letzte 30 Tage)'),
-          if (_perDayRW.isEmpty)
-            ui.AppCard(child: const Text('Keine Daten.'))
-          else
-            ui.AppCard(child: SizedBox(height: 220, child: _avgRepsLineChart())),
-
-          _SectionHeader('Max-Gewicht pro Tag (letzte 30 Tage)'),
-          if (_perDayRW.isEmpty)
-            ui.AppCard(child: const Text('Keine Daten.'))
-          else
-            ui.AppCard(child: SizedBox(height: 220, child: _maxWeightLineChart(unit))),
-
-          _SectionHeader('Letzte Sätze'),
-          if (_recent.isEmpty)
-            ui.AppCard(child: const Text('Keine Daten.'))
-          else
-            ui.AppCard(
-              child: Column(
-                children: _recent.map((s) {
-                  final when = s['started_at'] != null
-                      ? dateFmt.format(DateTime.parse(s['started_at']))
-                      : '-';
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(backgroundColor: ui.AppColors.surface2, child: Text('${s['set_index']}')),
-                    title: Text('${s['reps']} × ${_num(s['weight'])} $unit'),
-                    subtitle: Text(when),
-                  );
-                }).toList(),
-              ),
+          const SectionHeader('Übung – 7-Tage Vergleich'),
+          AppCard(
+            child: Column(
+              children: [
+                _compRow('Ø Wiederholungen', lastAvg, prevAvg, 'x'),
+                const SizedBox(height: 6),
+                _compRow('Max-Gewicht', lastMax, prevMax, unit.toString()),
+              ],
             ),
-          const SizedBox(height: 12),
+          ),
         ],
       ),
     );
   }
 
-  // ----- Charts -----
-  Widget _volumeLineChart() {
-    final daysAsc = List<Map<String, dynamic>>.from(_perDayVolume.reversed);
-    final spots = <FlSpot>[];
-    for (var i = 0; i < daysAsc.length; i++) {
-      final y = (daysAsc[i]['day_volume'] as num?)?.toDouble() ?? 0.0;
-      spots.add(FlSpot(i.toDouble(), y));
-    }
-    return LineChart(
-      LineChartData(
-        minX: 0, maxX: (spots.length - 1).toDouble(), minY: 0,
-        lineBarsData: [LineChartBarData(spots: spots, isCurved: true, dotData: const FlDotData(show: false), belowBarData: BarAreaData(show: true))],
-        titlesData: _xTitles(daysAsc),
-        gridData: const FlGridData(show: true), borderData: FlBorderData(show: false),
-      ),
-    );
-  }
-
-  Widget _avgRepsLineChart() {
-    final daysAsc = List<Map<String, dynamic>>.from(_perDayRW.reversed);
-    final spots = <FlSpot>[];
-    for (var i = 0; i < daysAsc.length; i++) {
-      final y = (daysAsc[i]['avg_reps'] as num?)?.toDouble() ?? 0.0;
-      spots.add(FlSpot(i.toDouble(), y));
-    }
-    return LineChart(
-      LineChartData(
-        minX: 0, maxX: (spots.length - 1).toDouble(), minY: 0,
-        lineBarsData: [LineChartBarData(spots: spots, isCurved: true, dotData: const FlDotData(show: false), belowBarData: BarAreaData(show: true))],
-        titlesData: _xTitles(daysAsc),
-        gridData: const FlGridData(show: true), borderData: FlBorderData(show: false),
-      ),
-    );
-  }
-
-  Widget _maxWeightLineChart(String unit) {
-    final daysAsc = List<Map<String, dynamic>>.from(_perDayRW.reversed);
-    final spots = <FlSpot>[];
-    for (var i = 0; i < daysAsc.length; i++) {
-      final y = (daysAsc[i]['max_weight'] as num?)?.toDouble() ?? 0.0;
-      spots.add(FlSpot(i.toDouble(), y));
-    }
-    return LineChart(
-      LineChartData(
-        minX: 0, maxX: (spots.length - 1).toDouble(), minY: 0,
-        lineBarsData: [LineChartBarData(spots: spots, isCurved: true, dotData: const FlDotData(show: false), belowBarData: BarAreaData(show: true))],
-        titlesData: _xTitles(daysAsc),
-        gridData: const FlGridData(show: true), borderData: FlBorderData(show: false),
-      ),
-    );
-  }
-
-  FlTitlesData _xTitles(List<Map<String, dynamic>> daysAsc) {
-    return FlTitlesData(
-      bottomTitles: AxisTitles(sideTitles: SideTitles(
-        showTitles: true, interval: (daysAsc.length / 4).clamp(1, 7).toDouble(),
-        getTitlesWidget: (value, meta) {
-          final idx = value.round();
-          if (idx < 0 || idx >= daysAsc.length) return const SizedBox.shrink();
-          final d = (daysAsc[idx]['day'] as String);
-          final label = d.length >= 10 ? d.substring(5, 10) : d;
-          return Padding(padding: const EdgeInsets.only(top: 6), child: Text(label, style: const TextStyle(fontSize: 10)));
-        },
-      )),
-      leftTitles: AxisTitles(sideTitles: SideTitles(
-        showTitles: true, reservedSize: 40,
-        getTitlesWidget: (v, m) => Text(_shortNumber(v), style: const TextStyle(fontSize: 10)),
-      )),
-      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-    );
-  }
-
-  String _num(Object? n) {
-    if (n == null) return '-';
-    final d = (n is num) ? n.toDouble() : double.tryParse('$n') ?? 0;
-    return d.toStringAsFixed(d.truncateToDouble() == d ? 0 : 2);
-  }
-
-  String _shortNumber(double v) {
-    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
-    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}k';
-    return v.toStringAsFixed(0);
-  }
-}
-
-/// Lokaler Header – ersetzt ui.SectionHeader
-class _SectionHeader extends StatelessWidget {
-  final String text;
-  const _SectionHeader(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    final muted = isLight ? ui.AppColors.textLightMuted : ui.AppColors.textDarkMuted;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontWeight: FontWeight.w900,
-          fontSize: 14,
-          color: muted,
-          letterSpacing: 0.2,
-        ),
-      ),
+  Widget _compRow(String label, double cur, double prev, String unit) {
+    final diff = cur - prev;
+    final pct = prev == 0 ? 100.0 : (diff / prev * 100);
+    final sign = diff >= 0 ? '+' : '–';
+    final color = diff >= 0 ? Colors.green : Colors.red;
+    return Row(
+      children: [
+        Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800))),
+        Text('${cur.toStringAsFixed(1)} $unit'),
+        const SizedBox(width: 12),
+        Text('$sign${pct.abs().toStringAsFixed(1)} %', style: TextStyle(color: color, fontWeight: FontWeight.w900)),
+      ],
     );
   }
 }
