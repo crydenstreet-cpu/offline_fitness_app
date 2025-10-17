@@ -33,12 +33,12 @@ class AppColors {
 ThemeData buildLightTheme() {
   final base = ThemeData(
     useMaterial3: true,
-    visualDensity: const VisualDensity(horizontal: 0, vertical: -1), // kompakter
-    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,        // kompakter
+    visualDensity: const VisualDensity(horizontal: 0, vertical: -1),
+    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     brightness: Brightness.light,
   );
 
-  final scheme = const ColorScheme.light(
+  const scheme = ColorScheme.light(
     primary: AppColors.red,
     onPrimary: Colors.white,
     secondary: Colors.black87,
@@ -53,14 +53,13 @@ ThemeData buildLightTheme() {
     colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.lightBgBottom,
 
-    // ➜ schlanke AppBar global
     appBarTheme: const AppBarTheme(
       centerTitle: false,
       elevation: 0,
       backgroundColor: Colors.transparent,
       foregroundColor: AppColors.textLight,
-      toolbarHeight: 46,                // << reduziert Höhe
-      titleSpacing: 8,                  // etwas enger
+      toolbarHeight: 46, // kompakter
+      titleSpacing: 8,
       titleTextStyle: TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.w800,
@@ -69,8 +68,8 @@ ThemeData buildLightTheme() {
       iconTheme: IconThemeData(size: 22),
     ),
 
-    // ➜ kompaktere Tabs
-    tabBarTheme: const TabBarTheme(
+    // ❗️Neu: TabBarThemeData statt TabBarTheme
+    tabBarTheme: const TabBarThemeData(
       labelPadding: EdgeInsets.symmetric(vertical: 4, horizontal: 12),
       indicatorSize: TabBarIndicatorSize.label,
       labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
@@ -78,7 +77,8 @@ ThemeData buildLightTheme() {
       dividerColor: Colors.transparent,
     ),
 
-    cardTheme: const CardTheme(
+    // ❗️Neu: CardThemeData statt CardTheme
+    cardTheme: const CardThemeData(
       clipBehavior: Clip.antiAlias,
       margin: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       elevation: 0,
@@ -120,7 +120,7 @@ ThemeData buildDarkTheme() {
     brightness: Brightness.dark,
   );
 
-  final scheme = const ColorScheme.dark(
+  const scheme = ColorScheme.dark(
     primary: AppColors.red,
     onPrimary: Colors.white,
     secondary: AppColors.textDarkMuted,
@@ -140,7 +140,7 @@ ThemeData buildDarkTheme() {
       elevation: 0,
       backgroundColor: Colors.transparent,
       foregroundColor: AppColors.textDark,
-      toolbarHeight: 46,                 // << reduziert Höhe
+      toolbarHeight: 46,
       titleSpacing: 8,
       titleTextStyle: TextStyle(
         fontSize: 18,
@@ -150,7 +150,7 @@ ThemeData buildDarkTheme() {
       iconTheme: IconThemeData(size: 22),
     ),
 
-    tabBarTheme: const TabBarTheme(
+    tabBarTheme: const TabBarThemeData(
       labelPadding: EdgeInsets.symmetric(vertical: 4, horizontal: 12),
       indicatorSize: TabBarIndicatorSize.label,
       labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
@@ -158,7 +158,7 @@ ThemeData buildDarkTheme() {
       dividerColor: Colors.transparent,
     ),
 
-    cardTheme: const CardTheme(
+    cardTheme: const CardThemeData(
       clipBehavior: Clip.antiAlias,
       margin: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       elevation: 0,
@@ -193,7 +193,7 @@ ThemeData buildDarkTheme() {
 
 ThemeData buildAppTheme() => buildLightTheme();
 
-/// Hintergrund mit Verlauf (orientiert sich direkt an Brightness)
+/// Verlaufshintergrund
 class GradientBackground extends StatelessWidget {
   final Widget child;
   const GradientBackground({super.key, required this.child});
@@ -216,7 +216,7 @@ class GradientBackground extends StatelessWidget {
   }
 }
 
-/// AppScaffold: transparenter Scaffold-Background, damit der Verlauf sichtbar bleibt
+/// AppScaffold – transparenter Hintergrund für Verlauf
 class AppScaffold extends StatelessWidget {
   final PreferredSizeWidget? appBar;
   final Widget body;
