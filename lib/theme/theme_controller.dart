@@ -2,39 +2,31 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class ThemeController extends ValueNotifier<ThemeMode> {
-  static const _key = 'themeMode'; // 'system' | 'light' | 'dark'
-  final SharedPreferences _prefs;
+class ThemeController {
+  ThemeController._();
+  static final ThemeController instance = ThemeController._();
 
-  ThemeController._(ThemeMode mode, this._prefs) : super(mode);
+  static const _prefsKey = 'theme_mode_index';
 
-  static Future<ThemeController> init() async {
+  /// Aktueller Modus (rebuildet via ValueListenableBuilder)
+  final ValueNotifier<ThemeMode> mode = ValueNotifier<ThemeMode>(ThemeMode.system);
+
+  /// Beim App-Start laden (im main() aufrufen)
+  Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key) ?? 'system';
-    return ThemeController._(_parse(raw), prefs);
-  }
-
-  void setMode(ThemeMode mode) {
-    if (mode == value) return;
-    value = mode;
-    _prefs.setString(_key, _encode(mode));
-    notifyListeners();
-  }
-
-  static ThemeMode _parse(String s) {
-    switch (s) {
-      case 'light': return ThemeMode.light;
-      case 'dark':  return ThemeMode.dark;
-      default:      return ThemeMode.system;
+    final idx = prefs.getInt(_prefsKey);
+    if (idx != null && idx >= 0 && idx < ThemeMode.values.length) {
+      mode.value = ThemeMode.values[idx];
+    } else {
+      // Optionaler Default: Dark
+      // mode.value = ThemeMode.dark;
     }
   }
 
-  static String _encode(ThemeMode m) {
-    switch (m) {
-      case ThemeMode.light: return 'light';
-      case ThemeMode.dark:  return 'dark';
-      case ThemeMode.system:
-      default:              return 'system';
-    }
+  /// Setzen & speichern
+  Future<void> setThemeMode(ThemeMode m) async {
+    mode.value = m;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_prefsKey, m.index);
   }
 }
