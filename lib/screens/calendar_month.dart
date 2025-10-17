@@ -13,7 +13,8 @@ class CalendarMonthScreen extends StatefulWidget {
 
 class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
   late DateTime _month; // 1. des aktuellen Monats
-  Map<String, Map<String, dynamic>> _byDate = {}; // yyyy-MM-dd -> {date, workout_id, workout_name}
+  // yyyy-MM-dd -> {date, workout_id, workout_name, color}
+  Map<String, Map<String, dynamic>> _byDate = {};
   bool _loading = true;
 
   @override
@@ -37,6 +38,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     final start = firstDay.subtract(Duration(days: firstDay.weekday - 1));
     final end   = lastDay.add(Duration(days: 7 - lastDay.weekday));
 
+    // Holt jetzt auch w.color aus der DB (siehe database_helper.getScheduleBetween)
     final rows = await DB.instance.getScheduleBetween(start, end);
     final map = <String, Map<String, dynamic>>{};
     for (final r in rows) {
@@ -143,7 +145,8 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
 
   Widget _dayCell(BuildContext context, DateTime day, bool inMonth) {
     final ymd = _ymd(day);
-    final scheduled = _byDate[ymd]; // {date, workout_id, workout_name}
+    // {date, workout_id, workout_name, color}
+    final scheduled = _byDate[ymd];
     final isToday = _ymd(DateTime.now()) == ymd;
     final scheme = Theme.of(context).colorScheme;
 
@@ -212,7 +215,11 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
               ),
               const Spacer(),
               if (scheduled != null)
-                _workoutPill(context, scheduled['workout_name']?.toString() ?? 'Workout'),
+                _workoutPill(
+                  context,
+                  scheduled['workout_name']?.toString() ?? 'Workout',
+                  colorHex: scheduled['color'] as int?, // ⬅️ FARBE AUS DB
+                ),
             ],
           ),
         ),
@@ -220,15 +227,17 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     );
   }
 
-  Widget _workoutPill(BuildContext context, String name) {
+  /// Farbige Workout-Pill (verwendet Workout-Farbe, fallback: Theme-Primary)
+  Widget _workoutPill(BuildContext context, String name, {int? colorHex}) {
     final scheme = Theme.of(context).colorScheme;
+    final color = colorHex != null ? Color(colorHex) : scheme.primary;
     return Align(
       alignment: Alignment.bottomLeft,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: scheme.primary.withOpacity(0.14),
-          border: Border.all(color: scheme.primary),
+          color: color.withOpacity(0.14),
+          border: Border.all(color: color),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Text(
@@ -238,7 +247,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w800,
-            color: scheme.primary,
+            color: color,
           ),
         ),
       ),
