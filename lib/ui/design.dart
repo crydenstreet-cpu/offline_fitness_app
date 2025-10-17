@@ -1,12 +1,7 @@
 // lib/ui/design.dart
 import 'package:flutter/material.dart';
 
-/// -------------------------------
-/// Farben (Grau/Schwarz/Rot-Stil)
-/// + Backwards-Compat Aliase (primary, surface2, text)
-/// -------------------------------
 class AppColors {
-  // Akzent
   static const Color red = Color(0xFFE53935);
   static const Color redDark = Color(0xFFB71C1C);
 
@@ -28,35 +23,12 @@ class AppColors {
   static const Color textLight = Color(0xFF101318);
   static const Color textLightMuted = Color(0xFF5E6676);
 
-  // ===== Backwards-Compat Aliase (für bestehenden Code) =====
+  // Backwards-Compat
   static const Color primary = red;
   static const Color surface2 = lightSurface2;
   static const Color text = textLight;
 }
 
-/// Kleine Extension (optional). Kann fehlen, wenn ein lokales Theme ohne
-/// Extensions erstellt wird – deshalb **immer** auf brightness zurückfallen!
-class _AppThemeX extends ThemeExtension<_AppThemeX> {
-  final bool light;
-  const _AppThemeX({required this.light});
-
-  @override
-  _AppThemeX copyWith({bool? light}) => _AppThemeX(light: light ?? this.light);
-  @override
-  _AppThemeX lerp(ThemeExtension<_AppThemeX>? other, double t) => this;
-}
-
-/// WICHTIG: Wenn die Extension fehlt, nutze die tatsächliche Helligkeit
-/// des aktiven Themes als Fallback.
-bool _isLight(BuildContext context) {
-  final theme = Theme.of(context);
-  final ext = theme.extension<_AppThemeX>();
-  return ext?.light ?? (theme.brightness == Brightness.light);
-}
-
-/// ----------------------------------------------------
-/// THEME (Material 3, kräftiger Rot-Akzent)
-/// ----------------------------------------------------
 ThemeData buildLightTheme() {
   final base = ThemeData(
     useMaterial3: true,
@@ -103,9 +75,6 @@ ThemeData buildLightTheme() {
       bodyColor: AppColors.textLight,
       displayColor: AppColors.textLight,
     ),
-    extensions: const <ThemeExtension<dynamic>>[
-      _AppThemeX(light: true),
-    ],
   );
 }
 
@@ -155,24 +124,19 @@ ThemeData buildDarkTheme() {
       bodyColor: AppColors.textDark,
       displayColor: AppColors.textDark,
     ),
-    extensions: const <ThemeExtension<dynamic>>[
-      _AppThemeX(light: false),
-    ],
   );
 }
 
 ThemeData buildAppTheme() => buildLightTheme();
 
-/// ------------------------------------
-/// Hintergrund mit leichtem Verlauf
-/// ------------------------------------
+/// Hintergrund mit Verlauf – **jetzt** direkt per Brightness
 class GradientBackground extends StatelessWidget {
   final Widget child;
   const GradientBackground({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
-    final isLight = _isLight(context); // <- jetzt zuverlässig
+    final isLight = Theme.of(context).brightness == Brightness.light;
     final top = isLight ? AppColors.lightBgTop : AppColors.darkBgTop;
     final bottom = isLight ? AppColors.lightBgBottom : AppColors.darkBgBottom;
 
@@ -189,9 +153,6 @@ class GradientBackground extends StatelessWidget {
   }
 }
 
-/// ------------------------------------
-/// AppScaffold – mit optionalem Drawer
-/// ------------------------------------
 class AppScaffold extends StatelessWidget {
   final PreferredSizeWidget? appBar;
   final Widget body;
@@ -213,6 +174,8 @@ class AppScaffold extends StatelessWidget {
     return Scaffold(
       drawer: drawer,
       appBar: appBar,
+      // transparenter Scaffold-Hintergrund, damit unser Verlauf sichtbar bleibt
+      backgroundColor: Colors.transparent,
       body: GradientBackground(child: SafeArea(child: body)),
       bottomNavigationBar: bottom,
       floatingActionButton: fab,
@@ -220,9 +183,6 @@ class AppScaffold extends StatelessWidget {
   }
 }
 
-/// ------------------------------------
-/// Flat-Card
-/// ------------------------------------
 class AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -243,18 +203,12 @@ class AppCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: padding,
-          child: child,
-        ),
+        child: Padding(padding: padding, child: child),
       ),
     );
   }
 }
 
-/// ------------------------------------
-/// 3D-Card – kräftiger Look
-/// ------------------------------------
 class AppCard3D extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -270,7 +224,7 @@ class AppCard3D extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isLight = _isLight(context);
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -310,24 +264,18 @@ class AppCard3D extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(18),
-          child: Padding(
-            padding: padding,
-            child: child,
-          ),
+          child: Padding(padding: padding, child: child),
         ),
       ),
     );
   }
 }
 
-/// ------------------------------------
-/// 3D-Button – kräftig
-/// ------------------------------------
 class AppButton3D extends StatefulWidget {
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
-  final bool filled; // true = rot gefüllt; false = neutral 3D
+  final bool filled;
   const AppButton3D({
     super.key,
     required this.label,
@@ -345,7 +293,7 @@ class _AppButton3DState extends State<AppButton3D> {
 
   @override
   Widget build(BuildContext context) {
-    final isLight = _isLight(context);
+    final isLight = Theme.of(context).brightness == Brightness.light;
 
     final bgA = widget.filled
         ? AppColors.red
@@ -413,14 +361,12 @@ class _AppButton3DState extends State<AppButton3D> {
                     Icon(widget.icon, color: fg),
                     const SizedBox(width: 10),
                   ],
-                  Text(
-                    widget.label,
-                    style: TextStyle(
-                      color: fg,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
+                  Text(widget.label,
+                      style: TextStyle(
+                        color: fg,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.2,
+                      )),
                 ],
               ),
             ),
@@ -431,16 +377,13 @@ class _AppButton3DState extends State<AppButton3D> {
   }
 }
 
-/// ----------------------------------------------------
-/// Kleine Utility-Header
-/// ----------------------------------------------------
 class SectionHeader extends StatelessWidget {
   final String text;
   const SectionHeader(this.text, {super.key});
 
   @override
   Widget build(BuildContext context) {
-    final isLight = _isLight(context);
+    final isLight = Theme.of(context).brightness == Brightness.light;
     final muted = isLight ? AppColors.textLightMuted : AppColors.textDarkMuted;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
