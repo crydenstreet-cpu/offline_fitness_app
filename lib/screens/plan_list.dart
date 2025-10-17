@@ -1,3 +1,4 @@
+// lib/screens/plan_list.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
@@ -81,34 +82,37 @@ class _PlanListScreenState extends State<PlanListScreen> {
     final df = DateFormat('EEEE, d. MMMM', 'de_DE');
     final headline = df.format(widget.date);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-          child: Row(
-            children: [
-              Expanded(child: Text(headline, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800))),
-              FilledButton.icon(onPressed: _pickWorkoutAndSave, icon: const Icon(Icons.edit_calendar), label: Text(_planned == null ? 'Planen' : 'Ändern')),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-        if (_loading)
-          const Expanded(child: Center(child: CircularProgressIndicator()))
-        else
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(12),
+    return Material(
+      color: Colors.transparent,   // <-- kein grauer Block
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+            child: Row(
               children: [
-                if (_planned == null)
-                  const AppCard(child: ListTile(leading: Icon(Icons.event_busy), title: Text('Kein Training geplant'), subtitle: Text('Tippe auf „Planen“, um ein Workout zuzuweisen.'))),
-                if (_planned != null)
-                  AppCard(child: ListTile(leading: const Icon(Icons.event_available), title: Text(_planned!['workout_name'] ?? 'Workout'), subtitle: Text('Geplant für $_ymd'), trailing: const Icon(Icons.chevron_right), onTap: _pickWorkoutAndSave)),
+                Expanded(child: Text(headline, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800))),
+                FilledButton.icon(onPressed: _pickWorkoutAndSave, icon: const Icon(Icons.edit_calendar), label: Text(_planned == null ? 'Planen' : 'Ändern')),
               ],
             ),
           ),
-      ],
+          const Divider(height: 1),
+          if (_loading)
+            const Expanded(child: Center(child: CircularProgressIndicator()))
+          else
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(12),
+                children: [
+                  if (_planned == null)
+                    const AppCard(child: ListTile(leading: Icon(Icons.event_busy), title: Text('Kein Training geplant'), subtitle: Text('Tippe auf „Planen“, um ein Workout zuzuweisen.'))),
+                  if (_planned != null)
+                    AppCard(child: ListTile(leading: const Icon(Icons.event_available), title: Text(_planned!['workout_name'] ?? 'Workout'), subtitle: Text('Geplant für $_ymd'), trailing: const Icon(Icons.chevron_right), onTap: _pickWorkoutAndSave)),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
