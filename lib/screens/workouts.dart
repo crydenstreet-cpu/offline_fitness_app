@@ -1,3 +1,4 @@
+// lib/screens/workouts.dart
 import 'package:flutter/material.dart';
 import 'package:offline_fitness_app/db/database_helper.dart';
 import 'package:offline_fitness_app/ui/design.dart';
@@ -99,86 +100,89 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
     setState(() {});
   }
 
-  Future<void> _addExerciseToWorkout() async {
-    // ⬅️ WICHTIG: IMMER FRISCH AUS DB LADEN (nicht aus einem alten Future)
-    final allExercises = await DB.instance.getExercises();
-
-    // Möglichkeit, direkt eine neue Übung anzulegen
-    Future<void> _createExerciseInline() async {
-      final nameCtrl = TextEditingController();
-      final unitCtrl = TextEditingController(text: 'kg');
-      final ok = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Neue Übung'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: nameCtrl, autofocus: true, decoration: const InputDecoration(labelText: 'Name')),
-              const SizedBox(height: 8),
-              TextField(controller: unitCtrl, decoration: const InputDecoration(labelText: 'Einheit (z. B. kg, reps, s)')),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
-            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Speichern')),
+  Future<void> _createExerciseInline() async {
+    final nameCtrl = TextEditingController();
+    final unitCtrl = TextEditingController(text: 'kg');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Neue Übung'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: nameCtrl, autofocus: true, decoration: const InputDecoration(labelText: 'Name')),
+            const SizedBox(height: 8),
+            TextField(controller: unitCtrl, decoration: const InputDecoration(labelText: 'Einheit (z. B. kg, reps, s)')),
           ],
         ),
-      );
-      if (ok == true && nameCtrl.text.trim().isNotEmpty) {
-        await DB.instance.insertExercise({
-          'name': nameCtrl.text.trim(),
-          'unit': unitCtrl.text.trim().isEmpty ? 'kg' : unitCtrl.text.trim(),
-        });
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Speichern')),
+        ],
+      ),
+    );
+    if (ok == true && nameCtrl.text.trim().isNotEmpty) {
+      await DB.instance.insertExercise({
+        'name': nameCtrl.text.trim(),
+        'unit': unitCtrl.text.trim().isEmpty ? 'kg' : unitCtrl.text.trim(),
+      });
+    }
+  }
+
+  Future<void> _addExerciseToWorkout() async {
+    // 1) Liste der Übungen FRISCH laden
+    List<Map<String, dynamic>> allExercises = await DB.instance.getExercises();
+
+    // Falls keine da -> inline anlegen anbieten
+    if (allExercises.isEmpty) {
+      await _createExerciseInline();
+      allExercises = await DB.instance.getExercises();
+      if (allExercises.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Keine Übung vorhanden.')));
+        return;
       }
     }
 
+    // 2) Auswahl-Dialog mit klarer Radio-Auswahl
     int? selectedId;
-    final result = await showModalBottomSheet<Object?>(
+    final confirmed = await showDialog<bool>(
       context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: 12, right: 12,
-              top: 8,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 12,
-            ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setStateDialog) => AlertDialog(
+          title: const Text('Übung zum Workout hinzufügen'),
+          content: SizedBox(
+            width: 420,
+            height: 360,
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Übung hinzufügen', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 8),
-                if (allExercises.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('Noch keine Übungen vorhanden. Lege zuerst eine Übung an.'),
-                  )
-                else
-                  StatefulBuilder(
-                    builder: (ctx, setStateSheet) => DropdownButtonFormField<int>(
-                      value: selectedId,
-                      items: allExercises
-                          .map((e) => DropdownMenuItem<int>(
-                                value: e['id'] as int,
-                                child: Text(e['name'] ?? ''),
-                              ))
-                          .toList(),
-                      onChanged: (v) => setStateSheet(() => selectedId = v),
-                      decoration: const InputDecoration(labelText: 'Übung auswählen'),
-                    ),
+                Expanded(
+                  child: ListView(
+                    children: allExercises.map((e) {
+                      final id = e['id'] as int;
+                      return RadioListTile<int>(
+                        value: id,
+                        groupValue: selectedId,
+                        title: Text(e['name']?.toString() ?? ''),
+                        subtitle: Text('Einheit: ${e['unit'] ?? 'kg'}'),
+                        onChanged: (v) => setStateDialog(() => selectedId = v),
+                      );
+                    }).toList(),
                   ),
-                const SizedBox(height: 12),
+                ),
+                const SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
                         icon: const Icon(Icons.fitness_center),
-                        label: const Text('Übung anlegen'),
+                        label: const Text('Neue Übung anlegen'),
                         onPressed: () async {
-                          Navigator.pop(ctx, 'create');
+                          await _createExerciseInline();
+                          // Liste aktualisieren & UI neu zeichnen
+                          allExercises = await DB.instance.getExercises();
+                          if (!mounted) return;
+                          setStateDialog(() {}); // rebuild innerhalb des Dialogs
                         },
                       ),
                     ),
@@ -187,7 +191,9 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                       child: FilledButton.icon(
                         icon: const Icon(Icons.add),
                         label: const Text('Hinzufügen'),
-                        onPressed: selectedId == null ? null : () => Navigator.pop(ctx, selectedId),
+                        onPressed: selectedId == null
+                            ? null
+                            : () => Navigator.pop(ctx, true),
                       ),
                     ),
                   ],
@@ -195,23 +201,16 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
               ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
 
-    if (!mounted) return;
-
-    if (result == 'create') {
-      await _createExerciseInline();
-      // Danach direkt nochmal den Add-Flow öffnen
-      await _addExerciseToWorkout();
-      return;
-    }
-
-    if (result is int) {
-      await DB.instance.addExerciseToWorkout(widget.workout['id'] as int, result);
+    if (confirmed == true && selectedId != null) {
+      await DB.instance.addExerciseToWorkout(widget.workout['id'] as int, selectedId!);
       _reload();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Übung zum Workout hinzugefügt.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Übung zum Workout hinzugefügt.')));
+      }
     }
   }
 
