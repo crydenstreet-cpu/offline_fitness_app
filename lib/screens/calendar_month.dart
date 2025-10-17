@@ -23,7 +23,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
   }
 
   String _ymd(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      '${d.year.toString().padLeft(4,'0')}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
 
   Future<void> _load() async {
     setState(() => _loading = true);
@@ -34,6 +34,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     final rows  = await DB.instance.getScheduleBetween(start, end);
     final map = <String, Map<String, dynamic>>{};
     for (final r in rows) { map[r['date'] as String] = r; }
+    if (!mounted) return;
     setState(() { _byDate = map; _loading = false; });
   }
 
@@ -42,19 +43,12 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // >>> WICHTIG: Hintergrund hier **erzwingen** (respektiert Dark/Light)
-    final bg = Theme.of(context).colorScheme.background;
-
-    if (_loading) {
-      return ColoredBox(
-        color: bg,
-        child: const Center(child: CircularProgressIndicator()),
-      );
-    }
+    if (_loading) return const Center(child: CircularProgressIndicator());
 
     final monthLabel = DateFormat('MMMM yyyy', 'de_DE').format(_month);
-    return ColoredBox(
-      color: bg,
+
+    return Material( // <— verhindert eigenes helles Material
+      color: Colors.transparent,
       child: Column(
         children: [
           Padding(
@@ -64,10 +58,9 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
                 IconButton(onPressed: _prev, icon: const Icon(Icons.chevron_left)),
                 Expanded(
                   child: Center(
-                    child: Text(
-                      monthLabel,
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
-                    ),
+                    child: Text(monthLabel,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w900, fontSize: 16)),
                   ),
                 ),
                 IconButton(onPressed: _next, icon: const Icon(Icons.chevron_right)),
@@ -90,7 +83,9 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     );
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-      child: Row(children: List.generate(7, (i) => Expanded(child: Center(child: Text(names[i], style: style))))),
+      child: Row(children: List.generate(
+        7, (i) => Expanded(child: Center(child: Text(names[i], style: style))),
+      )),
     );
   }
 
@@ -100,7 +95,9 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     final start = first.subtract(Duration(days: first.weekday - 1));
     final end   = last.add(Duration(days: 7 - last.weekday));
     final days = <DateTime>[];
-    for (DateTime d = start; !d.isAfter(end); d = d.add(const Duration(days: 1))) { days.add(d); }
+    for (DateTime d = start; !d.isAfter(end); d = d.add(const Duration(days: 1))) {
+      days.add(d);
+    }
 
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
@@ -121,7 +118,8 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => _PlanForDayScreen(date: day))),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => _PlanForDayScreen(date: day))),
         onLongPress: () async {
           final changed = await _pickWorkoutForDate(context, day, scheduled);
           if (changed == true) await _load();
@@ -129,14 +127,21 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            color: inMonth ? scheme.surface : scheme.surfaceVariant.withOpacity(0.35),
-            border: Border.all(color: isToday ? scheme.primary : Colors.transparent, width: isToday ? 2 : 1),
+            color: inMonth
+                ? scheme.surface
+                : scheme.surfaceVariant.withOpacity(0.35),
+            border: Border.all(
+              color: isToday ? scheme.primary : Colors.transparent,
+              width: isToday ? 2 : 1,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.light ? 0.08 : 0.28),
+                color: Colors.black.withOpacity(
+                  Theme.of(context).brightness == Brightness.light ? 0.08 : 0.28,
+                ),
                 blurRadius: 12,
                 offset: const Offset(0, 6),
-              )
+              ),
             ],
           ),
           padding: const EdgeInsets.all(6),
@@ -161,8 +166,11 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
               ]),
               const Spacer(),
               if (scheduled != null)
-                _pill(context, scheduled['workout_name']?.toString() ?? 'Workout',
-                  colorHex: scheduled['color'] as int?),
+                _pill(
+                  context,
+                  scheduled['workout_name']?.toString() ?? 'Workout',
+                  colorHex: scheduled['color'] as int?,
+                ),
             ],
           ),
         ),
@@ -202,17 +210,20 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface, // respektiert Dark
       builder: (ctx) {
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text('Workout für $ymd wählen', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              Text('Workout für $ymd wählen',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
               if (workouts.isEmpty)
-                const Padding(padding: EdgeInsets.all(16), child: Text('Noch keine Workouts vorhanden.')),
-              if (workouts.isNotEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('Noch keine Workouts vorhanden.'),
+                )
+              else
                 Flexible(
                   child: ListView(
                     shrinkWrap: true,
@@ -231,12 +242,23 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
               const SizedBox(height: 8),
               Row(children: [
                 if (current != null)
-                  Expanded(child: OutlinedButton.icon(onPressed: () => Navigator.pop(ctx, -1),
-                    icon: const Icon(Icons.delete_outline), label: const Text('Plan löschen'))),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('Plan löschen'),
+                      onPressed: () => Navigator.pop(ctx, -1),
+                    ),
+                  ),
                 if (current != null) const SizedBox(width: 8),
-                Expanded(child: FilledButton.icon(
-                  onPressed: (selected == null && current == null) ? null : () => Navigator.pop(ctx, selected),
-                  icon: const Icon(Icons.save), label: const Text('Speichern'))),
+                Expanded(
+                  child: FilledButton.icon(
+                    icon: const Icon(Icons.save),
+                    label: const Text('Speichern'),
+                    onPressed: (selected == null && current == null)
+                        ? null
+                        : () => Navigator.pop(ctx, selected),
+                  ),
+                ),
               ]),
               const SizedBox(height: 12),
             ]),
@@ -254,8 +276,9 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
 class _PlanForDayScreen extends StatelessWidget {
   final DateTime date;
   const _PlanForDayScreen({required this.date, super.key});
+
   String _ymd(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      '${d.year.toString().padLeft(4,'0')}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
 
   @override
   Widget build(BuildContext context) {
