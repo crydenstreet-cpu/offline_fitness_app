@@ -29,14 +29,16 @@ class AppColors {
   static const Color text = textLight;
 }
 
+/// ---------- LIGHT THEME ----------
 ThemeData buildLightTheme() {
   final base = ThemeData(
     useMaterial3: true,
-    visualDensity: VisualDensity.standard,
+    visualDensity: const VisualDensity(horizontal: 0, vertical: -1), // kompakter
+    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,        // kompakter
     brightness: Brightness.light,
   );
 
-  final scheme = ColorScheme.light(
+  final scheme = const ColorScheme.light(
     primary: AppColors.red,
     onPrimary: Colors.white,
     secondary: Colors.black87,
@@ -50,27 +52,58 @@ ThemeData buildLightTheme() {
   return base.copyWith(
     colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.lightBgBottom,
+
+    // ➜ schlanke AppBar global
     appBarTheme: const AppBarTheme(
       centerTitle: false,
       elevation: 0,
       backgroundColor: Colors.transparent,
       foregroundColor: AppColors.textLight,
+      toolbarHeight: 46,                // << reduziert Höhe
+      titleSpacing: 8,                  // etwas enger
+      titleTextStyle: TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w800,
+        color: AppColors.textLight,
+      ),
+      iconTheme: IconThemeData(size: 22),
     ),
-    cardTheme: const CardThemeData(
+
+    // ➜ kompaktere Tabs
+    tabBarTheme: const TabBarTheme(
+      labelPadding: EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+      indicatorSize: TabBarIndicatorSize.label,
+      labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+      unselectedLabelStyle: TextStyle(fontSize: 13),
+      dividerColor: Colors.transparent,
+    ),
+
+    cardTheme: const CardTheme(
       clipBehavior: Clip.antiAlias,
       margin: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       elevation: 0,
       surfaceTintColor: Colors.transparent,
     ),
+
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         elevation: 0,
         foregroundColor: Colors.white,
         backgroundColor: AppColors.red,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     ),
+
+    listTileTheme: const ListTileThemeData(
+      dense: true,
+      minVerticalPadding: 6,
+      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      iconColor: AppColors.textLight,
+      textColor: AppColors.textLight,
+    ),
+
     textTheme: base.textTheme.apply(
       bodyColor: AppColors.textLight,
       displayColor: AppColors.textLight,
@@ -78,14 +111,16 @@ ThemeData buildLightTheme() {
   );
 }
 
+/// ---------- DARK THEME ----------
 ThemeData buildDarkTheme() {
   final base = ThemeData(
     useMaterial3: true,
-    visualDensity: VisualDensity.standard,
+    visualDensity: const VisualDensity(horizontal: 0, vertical: -1),
+    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     brightness: Brightness.dark,
   );
 
-  final scheme = ColorScheme.dark(
+  final scheme = const ColorScheme.dark(
     primary: AppColors.red,
     onPrimary: Colors.white,
     secondary: AppColors.textDarkMuted,
@@ -99,27 +134,56 @@ ThemeData buildDarkTheme() {
   return base.copyWith(
     colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.darkBgBottom,
+
     appBarTheme: const AppBarTheme(
       centerTitle: false,
       elevation: 0,
       backgroundColor: Colors.transparent,
       foregroundColor: AppColors.textDark,
+      toolbarHeight: 46,                 // << reduziert Höhe
+      titleSpacing: 8,
+      titleTextStyle: TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w800,
+        color: AppColors.textDark,
+      ),
+      iconTheme: IconThemeData(size: 22),
     ),
-    cardTheme: const CardThemeData(
+
+    tabBarTheme: const TabBarTheme(
+      labelPadding: EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+      indicatorSize: TabBarIndicatorSize.label,
+      labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+      unselectedLabelStyle: TextStyle(fontSize: 13),
+      dividerColor: Colors.transparent,
+    ),
+
+    cardTheme: const CardTheme(
       clipBehavior: Clip.antiAlias,
       margin: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       elevation: 0,
       surfaceTintColor: Colors.transparent,
     ),
+
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         elevation: 0,
         foregroundColor: Colors.white,
         backgroundColor: AppColors.red,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     ),
+
+    listTileTheme: const ListTileThemeData(
+      dense: true,
+      minVerticalPadding: 6,
+      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      iconColor: AppColors.textDark,
+      textColor: AppColors.textDark,
+    ),
+
     textTheme: base.textTheme.apply(
       bodyColor: AppColors.textDark,
       displayColor: AppColors.textDark,
@@ -129,7 +193,7 @@ ThemeData buildDarkTheme() {
 
 ThemeData buildAppTheme() => buildLightTheme();
 
-/// Hintergrund mit Verlauf – **jetzt** direkt per Brightness
+/// Hintergrund mit Verlauf (orientiert sich direkt an Brightness)
 class GradientBackground extends StatelessWidget {
   final Widget child;
   const GradientBackground({super.key, required this.child});
@@ -143,8 +207,7 @@ class GradientBackground extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
           colors: [top, bottom],
         ),
       ),
@@ -153,6 +216,7 @@ class GradientBackground extends StatelessWidget {
   }
 }
 
+/// AppScaffold: transparenter Scaffold-Background, damit der Verlauf sichtbar bleibt
 class AppScaffold extends StatelessWidget {
   final PreferredSizeWidget? appBar;
   final Widget body;
@@ -174,7 +238,6 @@ class AppScaffold extends StatelessWidget {
     return Scaffold(
       drawer: drawer,
       appBar: appBar,
-      // transparenter Scaffold-Hintergrund, damit unser Verlauf sichtbar bleibt
       backgroundColor: Colors.transparent,
       body: GradientBackground(child: SafeArea(child: body)),
       bottomNavigationBar: bottom,
@@ -183,6 +246,7 @@ class AppScaffold extends StatelessWidget {
   }
 }
 
+/// Flat Card
 class AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -209,6 +273,7 @@ class AppCard extends StatelessWidget {
   }
 }
 
+/// 3D Card
 class AppCard3D extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -231,8 +296,7 @@ class AppCard3D extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
           colors: isLight
               ? [const Color(0xFFFFFFFF), const Color(0xFFF3F5FA)]
               : [const Color(0xFF262B36), const Color(0xFF1B2029)],
@@ -240,15 +304,11 @@ class AppCard3D extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(isLight ? 0.18 : 0.45),
-            blurRadius: 22,
-            spreadRadius: 1,
-            offset: const Offset(0, 14),
+            blurRadius: 22, spreadRadius: 1, offset: const Offset(0, 14),
           ),
           BoxShadow(
             color: (isLight ? Colors.white70 : Colors.white12),
-            blurRadius: 18,
-            spreadRadius: -8,
-            offset: const Offset(-6, -6),
+            blurRadius: 18, spreadRadius: -8, offset: const Offset(-6, -6),
           ),
         ],
         border: Border.all(
@@ -271,6 +331,7 @@ class AppCard3D extends StatelessWidget {
   }
 }
 
+/// 3D Button
 class AppButton3D extends StatefulWidget {
   final String label;
   final VoidCallback? onPressed;
@@ -315,29 +376,24 @@ class _AppButton3DState extends State<AppButton3D> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+            begin: Alignment.topCenter, end: Alignment.bottomCenter,
             colors: [bgA, bgB],
           ),
           boxShadow: _down
               ? [
                   BoxShadow(
                     color: Colors.black.withOpacity(isLight ? 0.22 : 0.55),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+                    blurRadius: 10, offset: const Offset(0, 4),
                   )
                 ]
               : [
                   BoxShadow(
                     color: Colors.black.withOpacity(isLight ? 0.22 : 0.55),
-                    blurRadius: 18,
-                    offset: const Offset(0, 10),
+                    blurRadius: 18, offset: const Offset(0, 10),
                   ),
                   BoxShadow(
                     color: Colors.white.withOpacity(isLight ? 0.35 : 0.08),
-                    blurRadius: 10,
-                    spreadRadius: -6,
-                    offset: const Offset(0, -4),
+                    blurRadius: 10, spreadRadius: -6, offset: const Offset(0, -4),
                   ),
                 ],
           border: Border.all(
@@ -353,7 +409,7 @@ class _AppButton3DState extends State<AppButton3D> {
             onTap: widget.onPressed,
             borderRadius: BorderRadius.circular(14),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -361,12 +417,14 @@ class _AppButton3DState extends State<AppButton3D> {
                     Icon(widget.icon, color: fg),
                     const SizedBox(width: 10),
                   ],
-                  Text(widget.label,
-                      style: TextStyle(
-                        color: fg,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.2,
-                      )),
+                  Text(
+                    widget.label,
+                    style: TextStyle(
+                      color: fg,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -377,6 +435,7 @@ class _AppButton3DState extends State<AppButton3D> {
   }
 }
 
+/// Sektionstitel
 class SectionHeader extends StatelessWidget {
   final String text;
   const SectionHeader(this.text, {super.key});
@@ -386,7 +445,7 @@ class SectionHeader extends StatelessWidget {
     final isLight = Theme.of(context).brightness == Brightness.light;
     final muted = isLight ? AppColors.textLightMuted : AppColors.textDarkMuted;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
       child: Text(
         text,
         style: TextStyle(
