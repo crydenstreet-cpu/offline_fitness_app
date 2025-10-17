@@ -11,7 +11,6 @@ class CalendarMonthScreen extends StatefulWidget {
 
 class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
   late DateTime _month;
-  // yyyy-MM-dd -> {date, workout_id, workout_name, color}
   Map<String, Map<String, dynamic>> _byDate = {};
   bool _loading = true;
 
@@ -34,9 +33,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     final end   = last.add(Duration(days: 7 - last.weekday));
     final rows  = await DB.instance.getScheduleBetween(start, end);
     final map = <String, Map<String, dynamic>>{};
-    for (final r in rows) {
-      map[r['date'] as String] = r;
-    }
+    for (final r in rows) { map[r['date'] as String] = r; }
     setState(() { _byDate = map; _loading = false; });
   }
 
@@ -45,14 +42,19 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    // >>> WICHTIG: Hintergrund hier **erzwingen** (respektiert Dark/Light)
+    final bg = Theme.of(context).colorScheme.background;
 
-    final scheme = Theme.of(context).colorScheme;
+    if (_loading) {
+      return ColoredBox(
+        color: bg,
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final monthLabel = DateFormat('MMMM yyyy', 'de_DE').format(_month);
-
-    // >>> WICHTIG: explizit den Seitenhintergrund an das Theme koppeln
     return ColoredBox(
-      color: Theme.of(context).scaffoldBackgroundColor,
+      color: bg,
       child: Column(
         children: [
           Padding(
@@ -72,7 +74,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
               ],
             ),
           ),
-          Divider(height: 1, color: scheme.outlineVariant.withOpacity(0.25)),
+          const Divider(height: 1),
           _weekdayHeader(context),
           Expanded(child: _grid(context)),
         ],
@@ -88,11 +90,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     );
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-      child: Row(
-        children: List.generate(7,
-          (i) => Expanded(child: Center(child: Text(names[i], style: style))),
-        ),
-      ),
+      child: Row(children: List.generate(7, (i) => Expanded(child: Center(child: Text(names[i], style: style))))),
     );
   }
 
@@ -101,19 +99,13 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     final last  = DateTime(_month.year, _month.month + 1, 0);
     final start = first.subtract(Duration(days: first.weekday - 1));
     final end   = last.add(Duration(days: 7 - last.weekday));
-
     final days = <DateTime>[];
-    for (DateTime d = start; !d.isAfter(end); d = d.add(const Duration(days: 1))) {
-      days.add(d);
-    }
+    for (DateTime d = start; !d.isAfter(end); d = d.add(const Duration(days: 1))) { days.add(d); }
 
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 7,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-      ),
+        crossAxisCount: 7, crossAxisSpacing: 8, mainAxisSpacing: 8),
       itemCount: days.length,
       itemBuilder: (_, i) => _cell(context, days[i], days[i].month == _month.month),
     );
@@ -129,11 +121,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => _PlanForDayScreen(date: day)),
-          );
-        },
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => _PlanForDayScreen(date: day))),
         onLongPress: () async {
           final changed = await _pickWorkoutForDate(context, day, scheduled);
           if (changed == true) await _load();
@@ -141,14 +129,15 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            // >>> KEIN Flächen-Farbauftrag – komplett transparent lassen
-            color: Colors.transparent,
-            border: Border.all(
-              color: isToday
-                  ? scheme.primary
-                  : (inMonth ? scheme.outlineVariant.withOpacity(0.25) : Colors.transparent),
-              width: isToday ? 2 : 1,
-            ),
+            color: inMonth ? scheme.surface : scheme.surfaceVariant.withOpacity(0.35),
+            border: Border.all(color: isToday ? scheme.primary : Colors.transparent, width: isToday ? 2 : 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.light ? 0.08 : 0.28),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              )
+            ],
           ),
           padding: const EdgeInsets.all(6),
           child: Column(
@@ -158,7 +147,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: isToday ? scheme.primary.withOpacity(0.18) : Colors.transparent,
+                    color: isToday ? scheme.primary.withOpacity(0.14) : Colors.transparent,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -172,11 +161,8 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
               ]),
               const Spacer(),
               if (scheduled != null)
-                _pill(
-                  context,
-                  scheduled['workout_name']?.toString() ?? 'Workout',
-                  colorHex: scheduled['color'] as int?,
-                ),
+                _pill(context, scheduled['workout_name']?.toString() ?? 'Workout',
+                  colorHex: scheduled['color'] as int?),
             ],
           ),
         ),
@@ -192,7 +178,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.18),
+          color: color.withOpacity(0.14),
           border: Border.all(color: color),
           borderRadius: BorderRadius.circular(14),
         ),
@@ -200,21 +186,14 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
           name,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: color,
-          ),
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: color),
         ),
       ),
     );
   }
 
   Future<bool> _pickWorkoutForDate(
-    BuildContext context,
-    DateTime date,
-    Map<String, dynamic>? current,
-  ) async {
+    BuildContext context, DateTime date, Map<String, dynamic>? current) async {
     final ymd = _ymd(date);
     final workouts = await DB.instance.getWorkouts();
     int? selected = current?['workout_id'] as int?;
@@ -223,75 +202,44 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface, // zum Theme passend
+      backgroundColor: Theme.of(context).colorScheme.surface, // respektiert Dark
       builder: (ctx) {
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: StatefulBuilder(
-              builder: (ctx, setBottom) => Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Workout für $ymd wählen',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 8),
-                  if (workouts.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text('Noch keine Workouts vorhanden.'),
-                    )
-                  else
-                    Flexible(
-                      child: ListView(
-                        shrinkWrap: true,
-                        children: workouts.map((w) {
-                          final id = w['id'] as int;
-                          final color = w['color'] as int?;
-                          return RadioListTile<int>(
-                            value: id,
-                            groupValue: selected,
-                            title: Row(
-                              children: [
-                                if (color != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: CircleAvatar(radius: 8, backgroundColor: Color(color)),
-                                  ),
-                                Expanded(child: Text(w['name'] ?? '')),
-                              ],
-                            ),
-                            onChanged: (v) => setBottom(() => selected = v),
-                            secondary: const Icon(Icons.fitness_center),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      if (current != null)
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => Navigator.pop(ctx, -1),
-                            icon: const Icon(Icons.delete_outline),
-                            label: const Text('Plan löschen'),
-                          ),
-                        ),
-                      if (current != null) const SizedBox(width: 8),
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed:
-                              (selected == null && current == null) ? null : () => Navigator.pop(ctx, selected),
-                          icon: const Icon(Icons.save),
-                          label: const Text('Speichern'),
-                        ),
-                      ),
-                    ],
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text('Workout für $ymd wählen', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 8),
+              if (workouts.isEmpty)
+                const Padding(padding: EdgeInsets.all(16), child: Text('Noch keine Workouts vorhanden.')),
+              if (workouts.isNotEmpty)
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: workouts.map((w) {
+                      final id = w['id'] as int;
+                      return RadioListTile<int>(
+                        value: id,
+                        groupValue: selected,
+                        title: Text(w['name'] ?? ''),
+                        secondary: const Icon(Icons.fitness_center),
+                        onChanged: (v) => selected = v,
+                      );
+                    }).toList(),
                   ),
-                  const SizedBox(height: 12),
-                ],
-              ),
-            ),
+                ),
+              const SizedBox(height: 8),
+              Row(children: [
+                if (current != null)
+                  Expanded(child: OutlinedButton.icon(onPressed: () => Navigator.pop(ctx, -1),
+                    icon: const Icon(Icons.delete_outline), label: const Text('Plan löschen'))),
+                if (current != null) const SizedBox(width: 8),
+                Expanded(child: FilledButton.icon(
+                  onPressed: (selected == null && current == null) ? null : () => Navigator.pop(ctx, selected),
+                  icon: const Icon(Icons.save), label: const Text('Speichern'))),
+              ]),
+              const SizedBox(height: 12),
+            ]),
           ),
         );
       },
@@ -299,24 +247,20 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
 
     if (chosenId == null) return false;
     if (chosenId == -1) { await DB.instance.deleteSchedule(ymd); return true; }
-    await DB.instance.upsertSchedule(ymd, chosenId);
-    return true;
+    await DB.instance.upsertSchedule(ymd, chosenId); return true;
   }
 }
 
 class _PlanForDayScreen extends StatelessWidget {
   final DateTime date;
   const _PlanForDayScreen({required this.date, super.key});
-
   String _ymd(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
     final ymd = _ymd(date);
-    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(title: Text(DateFormat('EEEE, d. MMMM', 'de_DE').format(date))),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: DB.instance.getScheduleBetween(date, date),
@@ -329,7 +273,6 @@ class _PlanForDayScreen extends StatelessWidget {
             leading: const Icon(Icons.fitness_center),
             title: Text(row['workout_name']?.toString() ?? 'Workout'),
             subtitle: Text('Geplant für $ymd'),
-            tileColor: scheme.surface.withOpacity(0.06),
           );
         },
       ),
