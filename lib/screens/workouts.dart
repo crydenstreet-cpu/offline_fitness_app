@@ -1,4 +1,3 @@
-// lib/screens/workouts.dart
 import 'package:flutter/material.dart';
 import 'package:offline_fitness_app/db/database_helper.dart';
 import 'package:offline_fitness_app/ui/design.dart';
@@ -18,62 +17,23 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
 
   Future<void> _createWorkout() async {
     final c = TextEditingController();
-    int? color;
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setStateDialog) => AlertDialog(
-          title: const Text('Neues Workout'),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextField(controller: c, decoration: const InputDecoration(labelText: 'Workout-Name'), autofocus: true),
-            const SizedBox(height: 12),
-            _ColorPickerRow(
-              selected: color,
-              onPick: (v) => setStateDialog(() => color = v),
-            ),
-          ]),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
-            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Anlegen')),
-          ],
+      builder: (ctx) => AlertDialog(
+        title: const Text('Neues Workout'),
+        content: TextField(
+          controller: c,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Workout-Name'),
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Anlegen')),
+        ],
       ),
     );
     if (ok == true && c.text.trim().isNotEmpty) {
-      await DB.instance.insertWorkout(c.text.trim(), color: color);
-      _reload();
-    }
-  }
-
-  Future<void> _editWorkout(Map<String, dynamic> w) async {
-    final nameCtrl = TextEditingController(text: w['name']?.toString() ?? '');
-    int? color = w['color'] as int?;
-    final choice = await showDialog<String>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setStateDialog) => AlertDialog(
-          title: const Text('Workout bearbeiten'),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Name')),
-            const SizedBox(height: 12),
-            _ColorPickerRow(selected: color, onPick: (v) => setStateDialog(() => color = v)),
-          ]),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, 'cancel'), child: const Text('Abbrechen')),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, 'delete'),
-              child: const Text('Löschen', style: TextStyle(color: Colors.red)),
-            ),
-            ElevatedButton(onPressed: () => Navigator.pop(ctx, 'save'), child: const Text('Speichern')),
-          ],
-        ),
-      ),
-    );
-    if (choice == 'save') {
-      await DB.instance.updateWorkout(w['id'] as int, name: nameCtrl.text.trim(), color: color);
-      _reload();
-    } else if (choice == 'delete') {
-      await DB.instance.deleteWorkout(w['id'] as int);
+      await DB.instance.insertWorkout(c.text.trim());
       _reload();
     }
   }
@@ -82,37 +42,33 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
   Widget build(BuildContext context) {
     return AppScaffold(
       appBar: AppBar(title: const Text('💪 Workouts')),
-      fab: FloatingActionButton.extended(onPressed: _createWorkout, icon: const Icon(Icons.add), label: const Text('Workout')),
+      fab: FloatingActionButton.extended(
+        onPressed: _createWorkout,
+        icon: const Icon(Icons.add),
+        label: const Text('Workout'),
+      ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _future,
         builder: (context, snap) {
           if (!snap.hasData) return const Center(child: CircularProgressIndicator());
           final items = snap.data!;
-          if (items.isEmpty) return const Center(child: Text('Noch keine Workouts – lege dein erstes an!'));
+          if (items.isEmpty) {
+            return const Center(child: Text('Noch keine Workouts – lege dein erstes an!'));
+          }
           return ListView.builder(
             padding: const EdgeInsets.only(bottom: 100),
             itemCount: items.length,
             itemBuilder: (context, i) {
               final w = items[i];
-              final color = (w['color'] as int?) ?? 0xFFE53935; // fallback rot
               return Card(
                 child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Color(color).withOpacity(0.18),
-                    child: Icon(Icons.fitness_center, color: Color(color)),
-                  ),
                   title: Text(w['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w800)),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(icon: const Icon(Icons.edit), onPressed: () => _editWorkout(w)),
-                      const Icon(Icons.chevron_right),
-                    ],
-                  ),
+                  trailing: const Icon(Icons.chevron_right),
                   onTap: () async {
-                    await Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => WorkoutDetailScreen(workout: w),
-                    ));
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => WorkoutDetailScreen(workout: w)),
+                    );
                     _reload();
                   },
                 ),
@@ -125,8 +81,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
   }
 }
 
-// ==== Detail bleibt wie gehabt (Plan bearbeiten + Session starten) ====
-
 class WorkoutDetailScreen extends StatefulWidget {
   final Map<String, dynamic> workout;
   const WorkoutDetailScreen({super.key, required this.workout});
@@ -137,48 +91,127 @@ class WorkoutDetailScreen extends StatefulWidget {
 
 class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
   late Future<List<Map<String, dynamic>>> _futureExercisesOfWorkout;
-  late Future<List<Map<String, dynamic>>> _futureAllExercises;
 
   @override
   void initState() { super.initState(); _reload(); }
   void _reload() {
     _futureExercisesOfWorkout = DB.instance.getExercisesOfWorkout(widget.workout['id'] as int);
-    _futureAllExercises = DB.instance.getExercises();
     setState(() {});
   }
 
   Future<void> _addExerciseToWorkout() async {
-    final all = await _futureAllExercises;
-    if (all.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erstelle zuerst Übungen im Tab „Übungen“.')));
-      return;
-    }
-    int? selectedId;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setStateDialog) => AlertDialog(
-          title: const Text('Übung hinzufügen'),
-          content: DropdownButtonFormField<int>(
-            value: selectedId,
-            items: all.map((e) => DropdownMenuItem<int>(value: e['id'] as int, child: Text(e['name'] ?? ''))).toList(),
-            onChanged: (v) => setStateDialog(() => selectedId = v),
-            decoration: const InputDecoration(labelText: 'Übung'),
+    // ⬅️ WICHTIG: IMMER FRISCH AUS DB LADEN (nicht aus einem alten Future)
+    final allExercises = await DB.instance.getExercises();
+
+    // Möglichkeit, direkt eine neue Übung anzulegen
+    Future<void> _createExerciseInline() async {
+      final nameCtrl = TextEditingController();
+      final unitCtrl = TextEditingController(text: 'kg');
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Neue Übung'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameCtrl, autofocus: true, decoration: const InputDecoration(labelText: 'Name')),
+              const SizedBox(height: 8),
+              TextField(controller: unitCtrl, decoration: const InputDecoration(labelText: 'Einheit (z. B. kg, reps, s)')),
+            ],
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
-            ElevatedButton(
-              onPressed: selectedId == null ? null : () => Navigator.pop(ctx, true),
-              child: const Text('Hinzufügen'),
-            ),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Speichern')),
           ],
         ),
-      ),
+      );
+      if (ok == true && nameCtrl.text.trim().isNotEmpty) {
+        await DB.instance.insertExercise({
+          'name': nameCtrl.text.trim(),
+          'unit': unitCtrl.text.trim().isEmpty ? 'kg' : unitCtrl.text.trim(),
+        });
+      }
+    }
+
+    int? selectedId;
+    final result = await showModalBottomSheet<Object?>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 12, right: 12,
+              top: 8,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 12,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Übung hinzufügen', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                if (allExercises.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('Noch keine Übungen vorhanden. Lege zuerst eine Übung an.'),
+                  )
+                else
+                  StatefulBuilder(
+                    builder: (ctx, setStateSheet) => DropdownButtonFormField<int>(
+                      value: selectedId,
+                      items: allExercises
+                          .map((e) => DropdownMenuItem<int>(
+                                value: e['id'] as int,
+                                child: Text(e['name'] ?? ''),
+                              ))
+                          .toList(),
+                      onChanged: (v) => setStateSheet(() => selectedId = v),
+                      decoration: const InputDecoration(labelText: 'Übung auswählen'),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.fitness_center),
+                        label: const Text('Übung anlegen'),
+                        onPressed: () async {
+                          Navigator.pop(ctx, 'create');
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.add),
+                        label: const Text('Hinzufügen'),
+                        onPressed: selectedId == null ? null : () => Navigator.pop(ctx, selectedId),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
-    if (ok == true && selectedId != null) {
-      await DB.instance.addExerciseToWorkout(widget.workout['id'] as int, selectedId!);
+
+    if (!mounted) return;
+
+    if (result == 'create') {
+      await _createExerciseInline();
+      // Danach direkt nochmal den Add-Flow öffnen
+      await _addExerciseToWorkout();
+      return;
+    }
+
+    if (result is int) {
+      await DB.instance.addExerciseToWorkout(widget.workout['id'] as int, result);
       _reload();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Übung zum Workout hinzugefügt.')));
     }
   }
 
@@ -200,7 +233,11 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
             Expanded(child: TextField(controller: repsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Wdh.'))),
           ]),
           const SizedBox(height: 8),
-          TextField(controller: weightCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: 'Gewicht ($unit)')),
+          TextField(
+            controller: weightCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(labelText: 'Gewicht ($unit)'),
+          ),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
@@ -244,19 +281,24 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final w = widget.workout;
-    final color = (w['color'] as int?) ?? 0xFFE53935;
     return AppScaffold(
       appBar: AppBar(
         title: Text('Workout: ${w['name']}'),
         actions: [IconButton(onPressed: _startTraining, icon: const Icon(Icons.play_arrow))],
       ),
-      fab: FloatingActionButton.extended(onPressed: _addExerciseToWorkout, icon: const Icon(Icons.add), label: const Text('Übung')),
+      fab: FloatingActionButton.extended(
+        onPressed: _addExerciseToWorkout,
+        icon: const Icon(Icons.add),
+        label: const Text('Übung'),
+      ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _futureExercisesOfWorkout,
         builder: (context, snap) {
           if (!snap.hasData) return const Center(child: CircularProgressIndicator());
           final items = snap.data!;
-          if (items.isEmpty) return const Center(child: Text('Noch keine Übungen in diesem Workout.'));
+          if (items.isEmpty) {
+            return const Center(child: Text('Noch keine Übungen in diesem Workout.'));
+          }
           return ListView.builder(
             padding: const EdgeInsets.only(bottom: 80),
             itemCount: items.length,
@@ -269,10 +311,6 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
 
               return Card(
                 child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Color(color).withOpacity(0.18),
-                    child: Icon(Icons.fitness_center, color: Color(color)),
-                  ),
                   title: Text(e['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w800)),
                   subtitle: Text(
                     'Plan: ${planSets ?? '-'}×${planReps ?? '-'}'
@@ -306,48 +344,5 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
     if (n == null) return '-';
     final d = (n is num) ? n.toDouble() : double.tryParse('$n') ?? 0;
     return d.toStringAsFixed(d.truncateToDouble() == d ? 0 : 2);
-  }
-}
-
-// --- kleine Farbwahl für Workouts ---
-class _ColorPickerRow extends StatelessWidget {
-  final int? selected;
-  final ValueChanged<int?> onPick;
-  const _ColorPickerRow({required this.selected, required this.onPick});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = <int>[
-      0xFFE53935, 0xFFFB8C00, 0xFFFDD835, 0xFF43A047,
-      0xFF1E88E5, 0xFF8E24AA, 0xFF6D4C41, 0xFF546E7A,
-    ];
-    return Wrap(
-      spacing: 8, runSpacing: 8,
-      children: [
-        ...colors.map((c) => GestureDetector(
-              onTap: () => onPick(c),
-              child: Container(
-                width: 28, height: 28,
-                decoration: BoxDecoration(
-                  color: Color(c),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: selected == c ? Colors.white : Colors.black12, width: 2),
-                ),
-              ),
-            )),
-        GestureDetector(
-          onTap: () => onPick(null),
-          child: Container(
-            width: 28, height: 28,
-            decoration: BoxDecoration(
-              color: Colors.transparent,
-              shape: BoxShape.circle,
-              border: Border.all(color: selected == null ? Colors.white : Colors.black12, width: 2),
-            ),
-            child: const Icon(Icons.block, size: 16),
-          ),
-        ),
-      ],
-    );
   }
 }
