@@ -39,6 +39,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     for (final r in rows) {
       map[r['date'] as String] = r; // {date, workout_id, workout_name, color}
     }
+    if (!mounted) return;
     setState(() { _byDate = map; _loading = false; });
   }
 
@@ -228,6 +229,8 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     );
   }
 
+  /// FIX: StatefulBuilder im BottomSheet, damit der „Speichern“-Button aktiv wird,
+  /// sobald eine Radio-Option gewählt wurde.
   Future<bool> _pickWorkoutForDate(BuildContext context, DateTime date, Map<String, dynamic>? current) async {
     final ymd = _ymd(date);
     final workouts = await DB.instance.getWorkouts();
@@ -238,40 +241,58 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
       showDragHandle: true,
       isScrollControlled: true,
       builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text('Workout für $ymd wählen', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 8),
-              if (workouts.isEmpty)
-                const Padding(padding: EdgeInsets.all(16), child: Text('Noch keine Workouts vorhanden.')),
-              if (workouts.isNotEmpty)
-                Flexible(
-                  child: ListView(
-                    shrinkWrap: true,
-                    children: workouts.map((w) {
-                      final id = w['id'] as int;
-                      return RadioListTile<int>(
-                        value: id,
-                        groupValue: selected,
-                        title: Text(w['name'] ?? ''),
-                        secondary: const Icon(Icons.fitness_center),
-                        onChanged: (v) => selected = v,
-                      );
-                    }).toList(),
-                  ),
-                ),
-              const SizedBox(height: 8),
-              Row(children: [
-                if (current != null)
-                  Expanded(child: OutlinedButton.icon(onPressed: () => Navigator.pop(ctx, -1), icon: const Icon(Icons.delete_outline), label: const Text('Plan löschen'))),
-                if (current != null) const SizedBox(width: 8),
-                Expanded(child: FilledButton.icon(onPressed: (selected == null && current == null) ? null : () => Navigator.pop(ctx, selected), icon: const Icon(Icons.save), label: const Text('Speichern'))),
-              ]),
-              const SizedBox(height: 12),
-            ]),
-          ),
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text('Workout für $ymd wählen', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 8),
+                  if (workouts.isEmpty)
+                    const Padding(padding: EdgeInsets.all(16), child: Text('Noch keine Workouts vorhanden.')),
+                  if (workouts.isNotEmpty)
+                    SizedBox(
+                      height: 360, // stabilere Höhe im Sheet
+                      child: ListView(
+                        children: workouts.map((w) {
+                          final id = w['id'] as int;
+                          return RadioListTile<int>(
+                            value: id,
+                            groupValue: selected,
+                            title: Text(w['name'] ?? ''),
+                            secondary: const Icon(Icons.fitness_center),
+                            onChanged: (v) => setModalState(() => selected = v),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    if (current != null)
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => Navigator.pop(ctx, -1),
+                          icon: const Icon(Icons.delete_outline),
+                          label: const Text('Plan löschen'),
+                        ),
+                      ),
+                    if (current != null) const SizedBox(width: 8),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: selected == null
+                            ? null
+                            : () => Navigator.pop(ctx, selected),
+                        icon: const Icon(Icons.save),
+                        label: const Text('Speichern'),
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(height: 12),
+                ]),
+              ),
+            );
+          },
         );
       },
     );
