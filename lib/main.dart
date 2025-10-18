@@ -27,7 +27,7 @@ class RootApp extends StatelessWidget {
       builder: (_, mode, __) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'Offline Fitness App',
+          title: 'RepBastion',
           theme: buildLightTheme(),
           darkTheme: buildDarkTheme(),
           themeMode: mode,
